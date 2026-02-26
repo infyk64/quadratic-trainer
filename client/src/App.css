@@ -21,12 +21,12 @@ html {
 
 /* Основной контейнер */
 .trainer-page {
-  background: var(--surface); 
+  background: var(--surface);
   border-radius: 16px;
   padding: 40px;
   width: 100%;
   max-width: 560px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3); 
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -34,7 +34,7 @@ html {
 
 h1 {
   font-size: 24px;
-  color: var(--text); 
+  color: var(--text);
   text-align: center;
 }
 
@@ -42,15 +42,15 @@ h1 {
 .score {
   text-align: center;
   font-size: 16px;
-  color: var(--text2); 
-  background: var(--surface2); 
+  color: var(--text2);
+  background: var(--surface2);
   padding: 8px 16px;
   border-radius: 8px;
 }
 
 /* Карточка уравнения */
 .equation-card {
-  background: var(--surface2); 
+  background: var(--surface2);
   border-radius: 12px;
   padding: 32px;
   text-align: center;
@@ -59,14 +59,14 @@ h1 {
 
 .equation-text {
   font-size: 32px;
-  color: var(--text); 
+  color: var(--text);
   font-weight: 600;
   letter-spacing: 1px;
 }
 
 /* Подсказка */
 .hint {
-  color: var(--text2); 
+  color: var(--text2);
   font-size: 14px;
   text-align: center;
 }
@@ -80,18 +80,18 @@ h1 {
 
 .option-btn {
   padding: 16px;
-  border: 2px solid var(--border); 
+  border: 2px solid var(--border);
   border-radius: 12px;
-  background: var(--surface2); 
+  background: var(--surface2);
   font-size: 16px;
   cursor: pointer;
   transition: all 0.2s;
-  color: var(--text); 
+  color: var(--text);
 }
 
 .option-btn:hover:not(:disabled) {
-  border-color: var(--accent); 
-  background: var(--surface); 
+  border-color: var(--accent);
+  background: var(--surface);
 }
 
 .option-btn.selected {
@@ -731,6 +731,23 @@ h1 {
 
 .section-card h2 {
   color: var(--text) !important;
+}
+
+.section-card img {
+  max-width: 600px !important;
+  width: 100%;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+
+.section-card video {
+  max-width: 600px !important;
+  width: 100% !important;
+  height: auto !important;
+  border-radius: 8px;
+  margin: 12px 0;
 }
 
 .EasyMDEContainer {
