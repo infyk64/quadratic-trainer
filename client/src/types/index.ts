@@ -17,3 +17,12 @@ export interface Question {
   equation: Equation;
   options: AnswerOption[];
 }
+
+export type UserRole = 'admin' | 'teacher' | 'student';
+
+export interface User {
+  id: number;
+  name: string;
+  role: UserRole;
+  created_at?: string;
+}
