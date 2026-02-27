@@ -8,6 +8,7 @@ import theoryQuestionsRouter from "./routes/theoryQuestions";
 import mediaRouter from './routes/media';
 import path from 'path';
 import theoryMaterialsRouter from "./routes/theoryMaterials";
+import groupsRouter from './routes/groups.js';
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.use("/api/theory-questions", theoryQuestionsRouter);
 app.use('/api/media', mediaRouter);
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use("/api/theory-materials", theoryMaterialsRouter);
+app.use('/api/groups', groupsRouter);
 
 // Тестовый маршрут — проверяем что сервер живой
 app.get('/api/health', (req, res) => {

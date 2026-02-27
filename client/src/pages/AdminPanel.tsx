@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
 import type { User } from "../types";
+import { useNavigate } from "react-router-dom";
 
 export function AdminPanel() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [newUsername, setNewUsername] = useState("");
   const [newRole, setNewRole] = useState<User["role"]>("student");
@@ -31,12 +33,12 @@ export function AdminPanel() {
       setNewUsername("");
       setNewRole("student");
       loadUsers();
-      alert("Пользователь успешно создан!");
+      alert("✅ Пользователь успешно создан!");
     } catch (err: any) {
       console.error("Ошибка создания пользователя:", err);
       const errorMessage =
         err.response?.data?.error || "Не удалось создать пользователя";
-      alert("" + errorMessage);
+      alert("❌ " + errorMessage);
     }
   };
 
@@ -53,7 +55,20 @@ export function AdminPanel() {
 
   return (
     <div className="page-container">
-      <h1> Панель администратора</h1>
+      <h1>👑 Панель администратора</h1>
+
+      {/* НОВАЯ СЕКЦИЯ - Управление группами */}
+      <div className="section-card">
+        <h2>Управление группами</h2>
+        <p>Создавайте группы и назначайте преподавателей</p>
+        <button
+          onClick={() => navigate('/admin/groups')}
+          className="btn-primary"
+          style={{ marginTop: '12px' }}
+        >
+          👥 Управление группами
+        </button>
+      </div>
 
       <div className="section-card">
         <h2>Создать нового пользователя</h2>
@@ -70,9 +85,9 @@ export function AdminPanel() {
             onChange={(e) => setNewRole(e.target.value as User["role"])}
             style={{ padding: "10px", fontSize: "16px" }}
           >
-            <option value="student"> Студент</option>
-            <option value="teacher"> Преподаватель</option>
-            <option value="admin"> Админ</option>
+            <option value="student">🎓 Студент</option>
+            <option value="teacher">📚 Преподаватель</option>
+            <option value="admin">👑 Админ</option>
           </select>
           <button
             onClick={createUser}
@@ -116,9 +131,9 @@ export function AdminPanel() {
                 <td style={{ padding: "12px" }}>{user.id}</td>
                 <td style={{ padding: "12px" }}>{user.username}</td>
                 <td style={{ padding: "12px" }}>
-                  {user.role === "admin" && " Админ"}
-                  {user.role === "teacher" && " Преподаватель"}
-                  {user.role === "student" && " Студент"}
+                  {user.role === "admin" && "👑 Админ"}
+                  {user.role === "teacher" && "📚 Преподаватель"}
+                  {user.role === "student" && "🎓 Студент"}
                 </td>
                 <td style={{ padding: "12px" }}>
                   {user.created_at

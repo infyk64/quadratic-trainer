@@ -9,6 +9,7 @@ import { AdminPanel } from "./pages/AdminPanel";
 import { TeacherPanel } from "./pages/TeacherPanel";
 import { TheoryEditor } from "./pages/TheoryEditor";
 import { QuestionEditor } from "./pages/QuestionEditor";
+import { GroupManagement } from "./pages/GroupManagement";
 import "./App.css";
 
 function App() {
@@ -122,7 +123,10 @@ function App() {
             <Route path="/stats" element={<Stats />} />
 
             {user.role === "admin" && (
-              <Route path="/admin" element={<AdminPanel />} />
+              <>
+                <Route path="/admin" element={<AdminPanel />} />
+                <Route path="/admin/groups" element={<GroupManagement />} />
+              </>
             )}
 
             {(user.role === "admin" || user.role === "teacher") && (

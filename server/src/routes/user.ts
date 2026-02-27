@@ -12,43 +12,39 @@ router.post("/login", async (req, res) => {
     const adminPassword = "admin123";
     const teacherPassword = "teacher123";
 
-    // Определяем роль
-    let role: "admin" | "teacher" | "student" = "student";
-
-    if (username.toLowerCase() === "admin") {
-      if (password !== adminPassword) {
-        return res
-          .status(401)
-          .json({ error: "Неверный пароль для администратора" });
-      }
-      role = "admin";
-    } else if (
-      username.toLowerCase().includes("teacher") ||
-      username.toLowerCase().includes("препод")
-    ) {
-      if (password !== teacherPassword) {
-        return res
-          .status(401)
-          .json({ error: "Неверный пароль для преподавателя" });
-      }
-      role = "teacher";
-    }
-
     // Проверяем есть ли пользователь в БД
     let result = await pool.query(
-      "SELECT id, username FROM users WHERE username = $1",
+      "SELECT id, username, role FROM users WHERE username = $1",
       [username],
     );
 
+    let user;
+    let role = "student";
+
     if (result.rows.length === 0) {
-      // Создаём нового
+      // Создаём нового студента
       result = await pool.query(
-        "INSERT INTO users (username) VALUES ($1) RETURNING id, username",
-        [username],
+        "INSERT INTO users (username, role) VALUES ($1, $2) RETURNING id, username, role",
+        [username, "student"],
       );
+      user = result.rows[0];
+    } else {
+      user = result.rows[0];
+      role = user.role || "student";
     }
 
-    const user = result.rows[0];
+    // Проверяем пароли для админа и преподавателя
+    if (role === "admin" && password !== adminPassword) {
+      return res
+        .status(401)
+        .json({ error: "Неверный пароль для администратора" });
+    }
+
+    if (role === "teacher" && password !== teacherPassword) {
+      return res
+        .status(401)
+        .json({ error: "Неверный пароль для преподавателя" });
+    }
 
     res.json({
       id: user.id,
@@ -78,13 +74,13 @@ router.post("/create", async (req, res) => {
         .json({ error: "Пользователь с таким именем уже существует" });
     }
 
-    // Создаём нового
+    // Создаём нового с ролью
     const result = await pool.query(
-      "INSERT INTO users (username) VALUES ($1) RETURNING id, username",
-      [username],
+      "INSERT INTO users (username, role) VALUES ($1, $2) RETURNING id, username, role",
+      [username, role],
     );
 
-    res.json({ ...result.rows[0], role });
+    res.json(result.rows[0]);
   } catch (err) {
     console.error("Ошибка создания пользователя:", err);
     res.status(500).json({ error: "Не удалось создать пользователя" });
@@ -123,23 +119,10 @@ router.get("/:id/stats", async (req, res) => {
 router.get("/all", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, username, created_at FROM users ORDER BY created_at DESC",
+      "SELECT id, username, role, created_at FROM users ORDER BY created_at DESC"
     );
-
-    // ВРЕМЕННО: добавляем роли на основе имён (пока нет в БД)
-    const usersWithRoles = result.rows.map((user) => {
-      let role = "student";
-      if (user.username.toLowerCase() === "admin") role = "admin";
-      if (
-        user.username.toLowerCase().includes("teacher") ||
-        user.username.toLowerCase().includes("препод")
-      )
-        role = "teacher";
-
-      return { ...user, role };
-    });
-
-    res.json(usersWithRoles);
+    
+    res.json(result.rows);
   } catch (err) {
     console.error("Ошибка получения пользователей:", err);
     res.status(500).json({ error: "Не удалось получить пользователей" });
