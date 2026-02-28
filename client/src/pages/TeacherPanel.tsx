@@ -1,5 +1,4 @@
-
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 
 export function TeacherPanel() {
   const navigate = useNavigate();
@@ -7,48 +6,76 @@ export function TeacherPanel() {
   return (
     <div className="page-container">
       <h1>📚 Панель преподавателя</h1>
-      
+
+      {/* Теоретические материалы */}
       <div className="section-card">
         <h2>Теоретические материалы</h2>
-        <p>Создавайте теорию в Markdown для студентов</p>
-        <button 
-          onClick={() => navigate('/teacher/theory-editor')}
-          className="btn-primary" 
-          style={{ marginTop: '12px' }}
+        <p style={{ color: "var(--text2)" }}>
+          Создавайте и редактируйте учебные материалы в формате Markdown
+        </p>
+        <button
+          onClick={() => navigate("/teacher/theory-editor")}
+          className="btn-primary"
+          style={{ marginTop: "12px", maxWidth: "300px" }}
         >
-          📝 Открыть редактор
+          📝 Открыть редактор теории
         </button>
       </div>
 
+      {/* Теоретические вопросы */}
       <div className="section-card">
-        <h2>Теоретические вопросы</h2>
-        <p>Создавайте вопросы с масками ответов</p>
-        <button 
-          onClick={() => navigate('/teacher/questions-editor')}
-          className="btn-primary" 
-          style={{ marginTop: '12px' }}
+        <h2>База теоретических вопросов</h2>
+        <p style={{ color: "var(--text2)" }}>
+          Создавайте вопросы с масками ответов для тестов и тренажёра
+        </p>
+        <button
+          onClick={() => navigate("/teacher/questions-editor")}
+          className="btn-primary"
+          style={{ marginTop: "12px", maxWidth: "300px" }}
         >
           ❓ Создать вопросы
         </button>
       </div>
 
+      {/* Тесты */}
       <div className="section-card">
         <h2>Тесты</h2>
-        <p>Конструктор тестов с настройками</p>
-        <ul>
-          <li>Таймер и количество ошибок</li>
-          <li>Шкала оценивания</li>
-          <li>Назначение группам</li>
-        </ul>
+        <p style={{ color: "var(--text2)" }}>
+          Создавайте тесты из уравнений и теоретических вопросов.
+          Настраивайте таймер, лимит ошибок и шкалу оценивания.
+          Назначайте тесты группам студентов.
+        </p>
+        <div style={{ display: "flex", gap: "10px", marginTop: "12px", flexWrap: "wrap" }}>
+          <button
+            onClick={() => navigate("/teacher/test-editor")}
+            className="btn-primary"
+            style={{ maxWidth: "250px" }}
+          >
+            🧪 Создать тест
+          </button>
+          <button
+            onClick={() => navigate("/teacher/tests")}
+            className="btn-primary"
+            style={{ maxWidth: "250px", background: "var(--accent2)" }}
+          >
+            📋 Мои тесты
+          </button>
+        </div>
       </div>
 
+      {/* Статистика */}
       <div className="section-card">
         <h2>Статистика</h2>
-        <ul>
-          <li>Статистика по группам</li>
-          <li>Статистика по тестам</li>
-          <li>Личная статистика учеников</li>
-        </ul>
+        <p style={{ color: "var(--text2)" }}>
+          Просматривайте результаты студентов по группам, тестам и индивидуально
+        </p>
+        <button
+          onClick={() => navigate("/teacher/stats")}
+          className="btn-primary"
+          style={{ marginTop: "12px", maxWidth: "300px", background: "var(--accent2)" }}
+        >
+          📊 Статистика
+        </button>
       </div>
     </div>
   );
