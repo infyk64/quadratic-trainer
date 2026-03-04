@@ -2,9 +2,14 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../api/client";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 
+interface ChoiceOption {
+  text: string;
+  isCorrect: boolean;
+}
+
 interface TestQuestion {
   id: number;
-  question_type: "equation" | "theory" | "open";
+  question_type: "equation" | "theory" | "open" | "single_choice" | "multi_choice";
   eq_a?: number;
   eq_b?: number;
   eq_c?: number;
@@ -12,6 +17,7 @@ interface TestQuestion {
   hint?: string;
   sort_order: number;
   points: number;
+  options?: ChoiceOption[];
 }
 
 interface TestData {
@@ -30,6 +36,16 @@ interface SessionData {
   status: string;
 }
 
+// Перемешивание массива (Fisher-Yates)
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export function TestRunner() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const location = useLocation();
@@ -40,6 +56,8 @@ export function TestRunner() {
   const [session, setSession] = useState<SessionData | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answer, setAnswer] = useState("");
+  const [selectedChoices, setSelectedChoices] = useState<number[]>([]);
+  const [shuffledOptions, setShuffledOptions] = useState<{ text: string; originalIndex: number }[]>([]);
   const [feedback, setFeedback] = useState<{ isCorrect: boolean; expected?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -51,75 +69,59 @@ export function TestRunner() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Загрузка теста и сессии
   useEffect(() => {
     if (!testId || !sessionId) return;
-
     const load = async () => {
       try {
         const { data: testData } = await api.get(`/tests/${testId}`);
         setTest(testData);
-
-        // Если есть таймер — рассчитываем оставшееся время
         if (testData.time_limit) {
-          // Получаем сессию для started_at
           const sessionIdNum = parseInt(sessionId);
-          // Время сессии берём из started_at
           setSession({ id: sessionIdNum, started_at: new Date().toISOString(), errors_count: 0, correct_answers: 0, status: "in_progress" });
-
-          // Таймер будет установлен после получения сессии
           setTimeLeft(testData.time_limit);
         }
       } catch (err) {
         console.error("Ошибка загрузки теста:", err);
-        alert("❌ Не удалось загрузить тест");
+        alert("Не удалось загрузить тест");
         navigate("/student/tests");
-      } finally {
-        setLoading(false);
-      }
+      } finally { setLoading(false); }
     };
-
     load();
   }, [testId, sessionId]);
 
-  // Таймер обратного отсчёта
+  // Перемешиваем варианты при смене вопроса
+  useEffect(() => {
+    if (!test) return;
+    const q = test.questions[currentIndex];
+    if ((q.question_type === "single_choice" || q.question_type === "multi_choice") && q.options) {
+      const indexed = q.options.map((o, i) => ({ text: o.text, originalIndex: i }));
+      setShuffledOptions(shuffleArray(indexed));
+      setSelectedChoices([]);
+    }
+  }, [currentIndex, test]);
+
   useEffect(() => {
     if (timeLeft === null || timeLeft <= 0 || finished) return;
-
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev === null) return null;
-        if (prev <= 1) {
-          // Время вышло
-          handleTimeUp();
-          return 0;
-        }
+        if (prev <= 1) { handleTimeUp(); return 0; }
         return prev - 1;
       });
     }, 1000);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [timeLeft, finished]);
 
-  // Фокус на input при смене вопроса
   useEffect(() => {
-    if (inputRef.current && !feedback) {
-      inputRef.current.focus();
-    }
+    if (inputRef.current && !feedback) inputRef.current.focus();
   }, [currentIndex, feedback]);
 
   const handleTimeUp = useCallback(async () => {
     if (finished) return;
     setFinished(true);
     if (timerRef.current) clearInterval(timerRef.current);
-
-    try {
-      await api.post(`/tests/sessions/${sessionId}/finish`);
-    } catch {}
-
-    alert("⏱ Время вышло!");
+    try { await api.post(`/tests/sessions/${sessionId}/finish`); } catch {}
+    alert("Время вышло!");
     navigate(`/student/test-result/${sessionId}`);
   }, [sessionId, finished, navigate]);
 
@@ -136,187 +138,149 @@ export function TestRunner() {
     return `${aStr}${bStr}${cStr} = 0`;
   };
 
+  const toggleChoice = (shuffledIdx: number) => {
+    if (feedback || finished) return;
+    const q = test!.questions[currentIndex];
+    if (q.question_type === "single_choice") {
+      setSelectedChoices([shuffledIdx]);
+    } else {
+      setSelectedChoices((prev) =>
+        prev.includes(shuffledIdx) ? prev.filter((i) => i !== shuffledIdx) : [...prev, shuffledIdx]
+      );
+    }
+  };
+
   const submitAnswer = async () => {
     if (!test || !sessionId || submitting || feedback) return;
-
     const currentQuestion = test.questions[currentIndex];
-    if (!answer.trim()) {
-      alert("Введите ответ");
-      return;
+
+    let studentAnswer: string;
+
+    if (currentQuestion.question_type === "single_choice" || currentQuestion.question_type === "multi_choice") {
+      if (selectedChoices.length === 0) { alert("Выберите вариант ответа"); return; }
+      // Отправляем оригинальные индексы правильных
+      const originalIndices = selectedChoices.map((si) => shuffledOptions[si].originalIndex).sort((a, b) => a - b);
+      studentAnswer = originalIndices.join(",");
+    } else {
+      if (!answer.trim()) { alert("Введите ответ"); return; }
+      studentAnswer = answer.trim();
     }
 
     setSubmitting(true);
     try {
       const { data } = await api.post(`/tests/sessions/${sessionId}/answer`, {
         question_id: currentQuestion.id,
-        student_answer: answer.trim(),
+        student_answer: studentAnswer,
       });
 
-      // Проверка: тест прерван по ошибкам
       if (data.status === "failed_errors") {
         setFinished(true);
         if (timerRef.current) clearInterval(timerRef.current);
         setFeedback({ isCorrect: false, expected: data.expected });
         setErrorsCount((prev) => prev + 1);
-
         setTimeout(() => {
-          alert("❌ Превышен лимит ошибок. Тест завершён.");
+          alert("Превышен лимит ошибок. Тест завершён.");
           navigate(`/student/test-result/${sessionId}`);
         }, 1500);
         return;
       }
 
       setFeedback(data);
-
-      if (data.isCorrect) {
-        setCorrectCount((prev) => prev + 1);
-      } else {
-        setErrorsCount((prev) => prev + 1);
-      }
+      if (data.isCorrect) { setCorrectCount((prev) => prev + 1); }
+      else { setErrorsCount((prev) => prev + 1); }
     } catch (err: any) {
-      // Время вышло на сервере
       if (err.response?.data?.status === "failed_time") {
         setFinished(true);
         if (timerRef.current) clearInterval(timerRef.current);
-        alert("⏱ Время вышло!");
+        alert("Время вышло!");
         navigate(`/student/test-result/${sessionId}`);
         return;
       }
-      console.error("Ошибка отправки ответа:", err);
-      alert("❌ " + (err.response?.data?.error || "Ошибка"));
-    } finally {
-      setSubmitting(false);
-    }
+      console.error("Ошибка:", err);
+      alert(err.response?.data?.error || "Ошибка");
+    } finally { setSubmitting(false); }
   };
 
   const nextQuestion = async () => {
     const isLast = currentIndex >= test!.questions.length - 1;
-
     if (isLast) {
-      // Завершаем тест
       setFinished(true);
       if (timerRef.current) clearInterval(timerRef.current);
-
-      try {
-        await api.post(`/tests/sessions/${sessionId}/finish`);
-      } catch {}
-
+      try { await api.post(`/tests/sessions/${sessionId}/finish`); } catch {}
       navigate(`/student/test-result/${sessionId}`);
       return;
     }
-
-    // Следующий вопрос
     setCurrentIndex((prev) => prev + 1);
     setAnswer("");
+    setSelectedChoices([]);
     setFeedback(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      if (feedback) {
-        nextQuestion();
-      } else {
-        submitAnswer();
-      }
+      if (feedback) nextQuestion();
+      else submitAnswer();
     }
   };
 
   if (loading || !test) {
-    return (
-      <div style={{ padding: "40px", textAlign: "center", color: "var(--text2)" }}>
-        Загрузка теста...
-      </div>
-    );
+    return <div style={{ padding: "40px", textAlign: "center", color: "var(--text2)" }}>Загрузка теста...</div>;
   }
 
   const currentQuestion = test.questions[currentIndex];
   const progress = ((currentIndex + (feedback ? 1 : 0)) / test.questions.length) * 100;
+  const isChoiceQuestion = currentQuestion.question_type === "single_choice" || currentQuestion.question_type === "multi_choice";
 
   return (
     <div className="page-container" style={{ maxWidth: "700px" }}>
-      {/* Заголовок с таймером */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "20px",
-        }}
-      >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <h1 style={{ margin: 0, fontSize: "20px" }}>{test.title}</h1>
         <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
           {test.max_errors && (
-            <span style={{
-              fontSize: "14px",
-              color: errorsCount >= test.max_errors - 1 ? "#ef4444" : "var(--text2)",
-              fontWeight: 600,
-            }}>
-              ❌ {errorsCount}/{test.max_errors}
+            <span style={{ fontSize: "14px", color: errorsCount >= test.max_errors - 1 ? "#ef4444" : "var(--text2)", fontWeight: 600 }}>
+              Ошибки: {errorsCount}/{test.max_errors}
             </span>
           )}
           {timeLeft !== null && (
-            <span
-              style={{
-                fontSize: "18px",
-                fontWeight: 700,
-                fontFamily: "monospace",
-                color: timeLeft < 60 ? "#ef4444" : timeLeft < 180 ? "#f59e0b" : "var(--text)",
-                padding: "4px 12px",
-                background: "var(--surface2)",
-                borderRadius: "6px",
-              }}
-            >
-              ⏱ {formatTime(timeLeft)}
+            <span style={{
+              fontSize: "18px", fontWeight: 700, fontFamily: "monospace",
+              color: timeLeft < 60 ? "#ef4444" : timeLeft < 180 ? "#f59e0b" : "var(--text)",
+              padding: "4px 12px", background: "var(--surface2)", borderRadius: "6px",
+            }}>
+              {formatTime(timeLeft)}
             </span>
           )}
         </div>
       </div>
 
-      {/* Прогресс-бар */}
       <div style={{ background: "var(--surface2)", borderRadius: "4px", height: "6px", marginBottom: "20px" }}>
-        <div
-          style={{
-            width: `${progress}%`,
-            height: "100%",
-            background: "#6366f1",
-            borderRadius: "4px",
-            transition: "width 0.3s",
-          }}
-        />
+        <div style={{ width: `${progress}%`, height: "100%", background: "#6366f1", borderRadius: "4px", transition: "width 0.3s" }} />
       </div>
 
-      {/* Счётчик вопросов */}
       <div style={{ textAlign: "center", fontSize: "14px", color: "var(--text2)", marginBottom: "16px" }}>
-        Вопрос {currentIndex + 1} из {test.questions.length} • ✅ {correctCount} • ❌ {errorsCount}
+        Вопрос {currentIndex + 1} из {test.questions.length} | Верно: {correctCount} | Ошибок: {errorsCount}
       </div>
 
-      {/* Вопрос */}
       <div className="section-card">
         <div style={{ fontSize: "13px", color: "var(--text2)", marginBottom: "12px" }}>
-          {currentQuestion.question_type === "equation" && "📐 Уравнение"}
-          {currentQuestion.question_type === "theory" && "📚 Теоретический вопрос"}
-          {currentQuestion.question_type === "open" && "✏️ Открытый вопрос"}
-          {" • "}{currentQuestion.points} балл(ов)
+          {currentQuestion.question_type === "equation" && "Уравнение"}
+          {currentQuestion.question_type === "theory" && "Теоретический вопрос"}
+          {currentQuestion.question_type === "open" && "Открытый вопрос"}
+          {currentQuestion.question_type === "single_choice" && "Выберите один ответ"}
+          {currentQuestion.question_type === "multi_choice" && "Выберите все правильные ответы"}
+          {" | "}{currentQuestion.points} балл(ов)
         </div>
 
-        {/* Текст вопроса */}
         {currentQuestion.question_type === "equation" ? (
           <div style={{ textAlign: "center", padding: "20px 0" }}>
-            <div
-              style={{
-                fontSize: "28px",
-                fontWeight: 700,
-                color: "var(--text)",
-                background: "var(--surface2)",
-                padding: "20px",
-                borderRadius: "12px",
-                display: "inline-block",
-              }}
-            >
+            <div style={{
+              fontSize: "28px", fontWeight: 700, color: "var(--text)",
+              background: "var(--surface2)", padding: "20px", borderRadius: "12px", display: "inline-block",
+            }}>
               {formatEquation(currentQuestion.eq_a!, currentQuestion.eq_b!, currentQuestion.eq_c!)}
             </div>
             <p style={{ color: "var(--text2)", marginTop: "12px", fontSize: "14px" }}>
-              Найдите корни уравнения. Если корней два — введите через запятую. Если нет — напишите «нет корней».
+              Найдите корни. Два корня — через запятую. Нет корней — напишите «нет корней».
             </p>
           </div>
         ) : (
@@ -325,88 +289,96 @@ export function TestRunner() {
           </div>
         )}
 
-        {/* Подсказка */}
         {currentQuestion.hint && !feedback && (
-          <div style={{
-            padding: "8px 12px",
-            background: "var(--surface2)",
-            borderRadius: "6px",
-            fontSize: "13px",
-            color: "var(--text2)",
-            marginTop: "8px",
-          }}>
-            💡 Подсказка: {currentQuestion.hint}
+          <div style={{ padding: "8px 12px", background: "var(--surface2)", borderRadius: "6px", fontSize: "13px", color: "var(--text2)", marginTop: "8px" }}>
+            Подсказка: {currentQuestion.hint}
           </div>
         )}
 
-        {/* Поле ввода ответа */}
-        <div style={{ marginTop: "20px" }}>
-          <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", color: "var(--text)", fontWeight: 600 }}>
-            Ваш ответ:
-          </label>
-          <input
-            ref={inputRef}
-            type="text"
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={!!feedback || finished}
-            placeholder={
-              currentQuestion.question_type === "equation"
-                ? "Например: 2, -3 или нет корней"
-                : "Введите ответ..."
-            }
-            style={{
-              width: "100%",
-              padding: "14px",
-              fontSize: "18px",
-              background: feedback
-                ? feedback.isCorrect ? "#f0fdf4" : "#fef2f2"
-                : "var(--surface2)",
-              color: "var(--text)",
-              border: feedback
-                ? `2px solid ${feedback.isCorrect ? "#22c55e" : "#ef4444"}`
-                : "1px solid var(--border)",
-              borderRadius: "8px",
-              outline: "none",
-              transition: "all 0.2s",
-            }}
-          />
-        </div>
+        {/* Варианты ответа для закрытых вопросов */}
+        {isChoiceQuestion && (
+          <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "10px" }}>
+            {shuffledOptions.map((opt, si) => {
+              const isSelected = selectedChoices.includes(si);
+              let bg = isSelected ? "var(--accent2)" : "var(--surface2)";
+              let borderColor = isSelected ? "var(--accent)" : "var(--border)";
 
-        {/* Результат ответа */}
+              // После фидбэка показываем правильные/неправильные
+              if (feedback && currentQuestion.options) {
+                const origIdx = opt.originalIndex;
+                const isCorrectOption = currentQuestion.options[origIdx]?.isCorrect;
+                if (isCorrectOption) {
+                  bg = "#f0fdf4"; borderColor = "#22c55e";
+                } else if (isSelected && !isCorrectOption) {
+                  bg = "#fef2f2"; borderColor = "#ef4444";
+                }
+              }
+
+              return (
+                <button key={si} onClick={() => toggleChoice(si)} disabled={!!feedback || finished}
+                  style={{
+                    padding: "14px 16px", background: bg,
+                    border: `2px solid ${borderColor}`, borderRadius: "8px",
+                    cursor: feedback ? "default" : "pointer",
+                    color: "var(--text)", fontSize: "15px", textAlign: "left",
+                    display: "flex", alignItems: "center", gap: "10px",
+                    transition: "all 0.15s",
+                  }}>
+                  <span style={{
+                    width: "24px", height: "24px", borderRadius: currentQuestion.question_type === "single_choice" ? "50%" : "4px",
+                    border: `2px solid ${isSelected ? "var(--accent)" : "var(--border)"}`,
+                    background: isSelected ? "var(--accent)" : "transparent",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    color: "white", fontSize: "14px", fontWeight: 700, flexShrink: 0,
+                  }}>
+                    {isSelected && "✓"}
+                  </span>
+                  {opt.text}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Поле ввода для открытых вопросов */}
+        {!isChoiceQuestion && (
+          <div style={{ marginTop: "20px" }}>
+            <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", color: "var(--text)", fontWeight: 600 }}>Ваш ответ:</label>
+            <input ref={inputRef} type="text" value={answer}
+              onChange={(e) => setAnswer(e.target.value)} onKeyDown={handleKeyDown}
+              disabled={!!feedback || finished}
+              placeholder={currentQuestion.question_type === "equation" ? "Например: 2, -3 или нет корней" : "Введите ответ..."}
+              style={{
+                width: "100%", padding: "14px", fontSize: "18px",
+                background: feedback ? (feedback.isCorrect ? "#f0fdf4" : "#fef2f2") : "var(--surface2)",
+                color: "var(--text)",
+                border: feedback ? `2px solid ${feedback.isCorrect ? "#22c55e" : "#ef4444"}` : "1px solid var(--border)",
+                borderRadius: "8px", outline: "none", transition: "all 0.2s",
+              }}
+            />
+          </div>
+        )}
+
         {feedback && (
-          <div
-            style={{
-              marginTop: "14px",
-              padding: "14px",
-              borderRadius: "8px",
-              background: feedback.isCorrect ? "#f0fdf4" : "#fef2f2",
-              border: `1px solid ${feedback.isCorrect ? "#bbf7d0" : "#fecaca"}`,
-              color: feedback.isCorrect ? "#16a34a" : "#dc2626",
-              fontSize: "15px",
-              fontWeight: 500,
-            }}
-          >
-            {feedback.isCorrect ? "✅ Верно!" : `❌ Неверно. Правильный ответ: ${feedback.expected}`}
+          <div style={{
+            marginTop: "14px", padding: "14px", borderRadius: "8px",
+            background: feedback.isCorrect ? "#f0fdf4" : "#fef2f2",
+            border: `1px solid ${feedback.isCorrect ? "#bbf7d0" : "#fecaca"}`,
+            color: feedback.isCorrect ? "#16a34a" : "#dc2626", fontSize: "15px", fontWeight: 500,
+          }}>
+            {feedback.isCorrect ? "Верно!" : `Неверно.${feedback.expected ? " Правильный ответ: " + feedback.expected : ""}`}
           </div>
         )}
 
-        {/* Кнопки */}
         <div style={{ marginTop: "20px" }}>
           {!feedback ? (
-            <button
-              onClick={submitAnswer}
-              className="btn-primary"
-              disabled={!answer.trim() || submitting || finished}
-            >
+            <button onClick={submitAnswer} className="btn-primary"
+              disabled={(isChoiceQuestion ? selectedChoices.length === 0 : !answer.trim()) || submitting || finished}>
               {submitting ? "Проверка..." : "Проверить (Enter)"}
             </button>
           ) : (
-            <button onClick={nextQuestion} className="btn-primary">
-              {currentIndex >= test.questions.length - 1
-                ? "🏁 Завершить тест (Enter)"
-                : "Следующий вопрос → (Enter)"}
+            <button onClick={nextQuestion} className="btn-primary" onKeyDown={handleKeyDown}>
+              {currentIndex >= test.questions.length - 1 ? "Завершить тест (Enter)" : "Следующий вопрос (Enter)"}
             </button>
           )}
         </div>

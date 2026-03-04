@@ -14,15 +14,15 @@ router.get(
       const isAdmin = req.user!.role === "admin";
       const result = await pool.query(
         `SELECT t.*, u.username as author_name,
-              COUNT(DISTINCT tq.id) as questions_count,
-              COUNT(DISTINCT ta.id) as assignments_count
-       FROM tests t
-       LEFT JOIN users u ON t.created_by = u.id
-       LEFT JOIN test_questions tq ON t.id = tq.test_id
-       LEFT JOIN test_assignments ta ON t.id = ta.test_id
-       ${isAdmin ? "" : "WHERE t.created_by = $1"}
-       GROUP BY t.id, u.username
-       ORDER BY t.created_at DESC`,
+            COUNT(DISTINCT tq.id) as questions_count,
+            COUNT(DISTINCT ta.id) as assignments_count
+     FROM tests t
+     LEFT JOIN users u ON t.created_by = u.id
+     LEFT JOIN test_questions tq ON t.id = tq.test_id
+     LEFT JOIN test_assignments ta ON t.id = ta.test_id
+     ${isAdmin ? "" : "WHERE t.created_by = $1"}
+     GROUP BY t.id, u.username
+     ORDER BY t.created_at DESC`,
         isAdmin ? [] : [req.user!.userId],
       );
       res.json(result.rows);
@@ -38,7 +38,7 @@ router.get("/student/available", authenticate, async (req, res) => {
     const studentId = req.user!.userId;
     const result = await pool.query(
       `SELECT DISTINCT t.id, t.title, t.description, t.time_limit, t.max_errors,
-              t.grade_excellent, t.grade_good, t.grade_satisf,
+              t.grade_excellent, t.grade_good, t.grade_satisf, t.max_attempts,
               t.created_at, u.username as author_name,
               COUNT(DISTINCT tq.id) as questions_count,
               ta.deadline,
@@ -71,21 +71,28 @@ router.get("/:id", authenticate, async (req, res) => {
     );
     if (testResult.rows.length === 0)
       return res.status(404).json({ error: "Тест не найден" });
+
     const questionsResult = await pool.query(
       "SELECT * FROM test_questions WHERE test_id = $1 ORDER BY sort_order, id",
       [testId],
     );
+
+    let questions = questionsResult.rows;
+    if (req.user!.role === "student") {
+      questions = questions.sort(() => Math.random() - 0.5);
+    }
+
     const assignmentsResult = await pool.query(
       `SELECT ta.*, g.name as group_name FROM test_assignments ta JOIN groups g ON ta.group_id = g.id WHERE ta.test_id = $1`,
       [testId],
     );
     res.json({
       ...testResult.rows[0],
-      questions: questionsResult.rows,
+      questions,
       assignments: assignmentsResult.rows,
     });
   } catch (err) {
-    console.error("Ошибка:", err);
+    console.error("Ошибка получения теста:", err);
     res.status(500).json({ error: "Не удалось получить тест" });
   }
 });
@@ -103,6 +110,7 @@ router.post(
         description,
         time_limit,
         max_errors,
+        max_attempts,
         grade_excellent,
         grade_good,
         grade_satisf,
@@ -114,8 +122,9 @@ router.post(
         return res.status(400).json({ error: "Добавьте вопросы" });
 
       const testResult = await client.query(
-        `INSERT INTO tests (title, description, created_by, time_limit, max_errors, grade_excellent, grade_good, grade_satisf)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        `INSERT INTO tests (title, description, created_by, time_limit, max_errors,
+        grade_excellent, grade_good, grade_satisf, max_attempts)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
         [
           title.trim(),
           description?.trim() || null,
@@ -125,14 +134,17 @@ router.post(
           grade_excellent || 90,
           grade_good || 75,
           grade_satisf || 60,
+          max_attempts || null,
         ],
       );
       const test = testResult.rows[0];
+
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
         await client.query(
-          `INSERT INTO test_questions (test_id, question_type, eq_a, eq_b, eq_c, question_text, answer_mask, answer_type, hint, sort_order, points)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          `INSERT INTO test_questions (test_id, question_type, eq_a, eq_b, eq_c, question_text,
+          answer_mask, answer_type, hint, sort_order, points, options)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
           [
             test.id,
             q.question_type,
@@ -141,13 +153,17 @@ router.post(
             q.eq_c || null,
             q.question_text || null,
             q.answer_mask,
-            q.answer_type || "exact",
+            q.question_type === "multi_choice"
+              ? "multi_choice"
+              : q.answer_type || "exact",
             q.hint || null,
             i,
             q.points || 1,
+            q.options ? JSON.stringify(q.options) : null,
           ],
         );
       }
+
       await client.query("COMMIT");
       res.json({ ...test, questions_count: questions.length });
     } catch (err) {
@@ -174,17 +190,20 @@ router.put(
         description,
         time_limit,
         max_errors,
+        max_attempts,
         grade_excellent,
         grade_good,
         grade_satisf,
         is_published,
         questions,
       } = req.body;
+
       const testResult = await client.query(
         `UPDATE tests SET title=COALESCE($1,title), description=$2, time_limit=$3, max_errors=$4,
         grade_excellent=COALESCE($5,grade_excellent), grade_good=COALESCE($6,grade_good),
-        grade_satisf=COALESCE($7,grade_satisf), is_published=COALESCE($8,is_published)
-       WHERE id=$9 RETURNING *`,
+        grade_satisf=COALESCE($7,grade_satisf), is_published=COALESCE($8,is_published),
+        max_attempts=$9
+       WHERE id=$10 RETURNING *`,
         [
           title?.trim(),
           description?.trim() || null,
@@ -194,6 +213,7 @@ router.put(
           grade_good,
           grade_satisf,
           is_published,
+          max_attempts || null,
           testId,
         ],
       );
@@ -201,6 +221,7 @@ router.put(
         await client.query("ROLLBACK");
         return res.status(404).json({ error: "Не найден" });
       }
+
       if (questions && Array.isArray(questions)) {
         await client.query("DELETE FROM test_questions WHERE test_id = $1", [
           testId,
@@ -208,8 +229,9 @@ router.put(
         for (let i = 0; i < questions.length; i++) {
           const q = questions[i];
           await client.query(
-            `INSERT INTO test_questions (test_id, question_type, eq_a, eq_b, eq_c, question_text, answer_mask, answer_type, hint, sort_order, points)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+            `INSERT INTO test_questions (test_id, question_type, eq_a, eq_b, eq_c, question_text,
+            answer_mask, answer_type, hint, sort_order, points, options)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
             [
               testId,
               q.question_type,
@@ -218,14 +240,18 @@ router.put(
               q.eq_c || null,
               q.question_text || null,
               q.answer_mask,
-              q.answer_type || "exact",
+              q.question_type === "multi_choice"
+                ? "multi_choice"
+                : q.answer_type || "exact",
               q.hint || null,
               i,
               q.points || 1,
+              q.options ? JSON.stringify(q.options) : null,
             ],
           );
         }
       }
+
       await client.query("COMMIT");
       res.json(testResult.rows[0]);
     } catch (err) {
@@ -319,19 +345,52 @@ router.post("/:id/start", authenticate, async (req, res) => {
   try {
     const testId = parseInt(req.params.id);
     const studentId = req.user!.userId;
-    const existing = await pool.query(
-      "SELECT * FROM test_sessions WHERE test_id=$1 AND student_id=$2 ORDER BY started_at DESC LIMIT 1",
+
+    // Проверка дедлайна
+    const assignmentCheck = await pool.query(
+      `SELECT ta.deadline FROM test_assignments ta
+       JOIN group_members gm ON ta.group_id = gm.group_id
+       WHERE ta.test_id = $1 AND gm.student_id = $2
+       AND (ta.deadline IS NULL OR ta.deadline > NOW())
+       LIMIT 1`,
       [testId, studentId],
     );
+    if (assignmentCheck.rows.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "Тест просрочен или не назначен вам" });
+    }
+
+    // Проверка лимита попыток
+    const testData = await pool.query(
+      "SELECT max_attempts FROM tests WHERE id=$1",
+      [testId],
+    );
+    const maxAttempts = testData.rows[0]?.max_attempts || 1;
+
+    const existing = await pool.query(
+      "SELECT * FROM test_sessions WHERE test_id=$1 AND student_id=$2 ORDER BY started_at DESC",
+      [testId, studentId],
+    );
+
     if (existing.rows.length > 0) {
-      const s = existing.rows[0];
-      if (s.status === "in_progress") return res.json(s);
-      if (["completed", "failed_time", "failed_errors"].includes(s.status)) {
-        return res
-          .status(400)
-          .json({ error: "Вы уже проходили этот тест", session: s });
+      const inProgress = existing.rows.find(
+        (s: any) => s.status === "in_progress",
+      );
+      if (inProgress) return res.json(inProgress);
+
+      const finishedCount = existing.rows.filter((s: any) =>
+        ["completed", "failed_time", "failed_errors"].includes(s.status),
+      ).length;
+
+      if (finishedCount >= maxAttempts) {
+        return res.status(400).json({
+          error: "Исчерпаны все попытки (" + maxAttempts + ")",
+          session: existing.rows[0],
+        });
       }
     }
+
     const qCount = await pool.query(
       "SELECT COUNT(*) FROM test_questions WHERE test_id=$1",
       [testId],
@@ -395,6 +454,12 @@ router.post("/sessions/:sessionId/answer", authenticate, async (req, res) => {
         question.eq_c,
         student_answer,
       );
+    } else if (question.question_type === "multi_choice") {
+      checkResult = checkAnswer(
+        student_answer,
+        question.answer_mask,
+        "multi_choice",
+      );
     } else {
       checkResult = checkAnswer(
         student_answer,
@@ -414,11 +479,17 @@ router.post("/sessions/:sessionId/answer", authenticate, async (req, res) => {
         [sessionId],
       );
     } else {
-      await pool.query(
-        "UPDATE test_sessions SET errors_count = errors_count + 1 WHERE id=$1",
-        [sessionId],
-      );
-      if (test.max_errors) {
+      // Для multi_choice с частичным оцениванием: partialScore > 0 = не считаем как полную ошибку
+      const isFullError =
+        !checkResult.partialScore || checkResult.partialScore === 0;
+      if (isFullError) {
+        await pool.query(
+          "UPDATE test_sessions SET errors_count = errors_count + 1 WHERE id=$1",
+          [sessionId],
+        );
+      }
+
+      if (test.max_errors && isFullError) {
         const updated = await pool.query(
           "SELECT errors_count FROM test_sessions WHERE id=$1",
           [sessionId],
@@ -433,6 +504,7 @@ router.post("/sessions/:sessionId/answer", authenticate, async (req, res) => {
         }
       }
     }
+
     res.json(checkResult);
   } catch (err) {
     console.error("Ошибка ответа:", err);
@@ -471,7 +543,7 @@ router.get("/sessions/:sessionId/result", authenticate, async (req, res) => {
       return res.status(404).json({ error: "Сессия не найдена" });
     const answersResult = await pool.query(
       `SELECT ta.*, tq.question_type, tq.question_text,
-              tq.eq_a, tq.eq_b, tq.eq_c, tq.answer_mask, tq.points
+              tq.eq_a, tq.eq_b, tq.eq_c, tq.answer_mask, tq.points, tq.options
        FROM test_answers ta JOIN test_questions tq ON ta.question_id = tq.id
        WHERE ta.session_id=$1 ORDER BY ta.answered_at`,
       [sessionId],

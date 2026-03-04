@@ -48,7 +48,7 @@ export function StudentTests() {
       navigate(`/student/test-run/${session.id}`, { state: { testId } });
     } catch (err: any) {
       const msg = err.response?.data?.error || "Не удалось начать тест";
-      alert("❌ " + msg);
+      alert("" + msg);
 
       // Если уже проходил — показываем результат
       if (err.response?.data?.session) {
@@ -136,13 +136,13 @@ export function StudentTests() {
                     )}
 
                     <div style={{ display: "flex", gap: "16px", fontSize: "13px", color: "var(--text2)", flexWrap: "wrap" }}>
-                      <span>📝 {test.questions_count} вопросов</span>
+                      <span>{test.questions_count} вопросов</span>
                       {test.time_limit && <span>⏱ {Math.round(test.time_limit / 60)} мин</span>}
                       {test.max_errors && <span>❌ макс. {test.max_errors} ошибок</span>}
-                      <span>👤 {test.author_name}</span>
+                      <span>{test.author_name}</span>
                       {test.deadline && (
                         <span style={{ color: deadlinePassed ? "#ef4444" : "var(--text2)" }}>
-                          📅 Дедлайн: {new Date(test.deadline).toLocaleDateString()}
+                          Дедлайн: {new Date(test.deadline).toLocaleDateString()}
                           {deadlinePassed && " (просрочен)"}
                         </span>
                       )}
@@ -196,7 +196,7 @@ export function StudentTests() {
                           fontSize: "14px",
                         }}
                       >
-                        📊 Результат
+                        Результат
                       </button>
                     )}
                     {deadlinePassed && !isDone && !canContinue && (

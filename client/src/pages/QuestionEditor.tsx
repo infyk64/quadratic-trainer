@@ -55,10 +55,10 @@ export function QuestionEditor() {
       setAnswerMask("");
       setHint("");
       loadQuestions();
-      alert("✅ Вопрос сохранён в базу данных!");
+      alert("Вопрос сохранён в базу данных!");
     } catch (err) {
       console.error("Ошибка сохранения вопроса:", err);
-      alert("❌ Не удалось сохранить вопрос");
+      alert("Не удалось сохранить вопрос");
     }
   };
 
@@ -70,13 +70,13 @@ export function QuestionEditor() {
       loadQuestions();
     } catch (err) {
       console.error("Ошибка удаления:", err);
-      alert("❌ Не удалось удалить вопрос");
+      alert("Не удалось удалить вопрос");
     }
   };
 
   return (
     <div className="page-container">
-      <h1>❓ Редактор теоретических вопросов</h1>
+      <h1>Редактор теоретических вопросов</h1>
 
       <div className="section-card">
         <h2>Создать новый вопрос</h2>

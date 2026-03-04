@@ -42,7 +42,7 @@ export function TestList() {
       loadTests();
     } catch (err) {
       console.error("Ошибка удаления:", err);
-      alert("❌ Не удалось удалить тест");
+      alert("Не удалось удалить тест");
     }
   };
 
@@ -65,7 +65,7 @@ export function TestList() {
 
   return (
     <div className="page-container">
-      <h1>📋 Мои тесты</h1>
+      <h1>Мои тесты</h1>
 
       <button
         onClick={() => navigate("/teacher/test-editor")}
@@ -111,11 +111,11 @@ export function TestList() {
                   )}
 
                   <div style={{ display: "flex", gap: "16px", fontSize: "13px", color: "var(--text2)", flexWrap: "wrap" }}>
-                    <span>📝 {test.questions_count} вопросов</span>
-                    <span>👥 {test.assignments_count} групп</span>
+                    <span>{test.questions_count} вопросов</span>
+                    <span>{test.assignments_count} групп</span>
                     {test.time_limit && <span>⏱ {Math.round(test.time_limit / 60)} мин</span>}
                     {test.max_errors && <span>❌ макс. {test.max_errors} ошибок</span>}
-                    <span>📅 {new Date(test.created_at).toLocaleDateString()}</span>
+                    <span>{new Date(test.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
 
@@ -134,7 +134,7 @@ export function TestList() {
                         fontSize: "13px",
                       }}
                     >
-                      ✅ Опубликовать
+                      Опубликовать
                     </button>
                   )}
                   <button

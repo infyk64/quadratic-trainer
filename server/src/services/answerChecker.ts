@@ -1,28 +1,27 @@
+// Полный путь: server/src/services/answerChecker.ts
+
 export interface CheckResult {
   isCorrect: boolean;
   expected?: string;
+  partialScore?: number; // 0..1 для частичного оценивания
 }
 
 export function checkAnswer(
   studentAnswer: string,
   answerMask: string,
-  answerType: string,
+  answerType: string
 ): CheckResult {
-  if (!studentAnswer || !studentAnswer.trim()) {
+  if (!studentAnswer && studentAnswer !== "") {
     return { isCorrect: false, expected: answerMask };
   }
   const answer = studentAnswer.trim();
   switch (answerType) {
-    case "exact":
-      return checkExact(answer, answerMask);
-    case "keywords":
-      return checkKeywords(answer, answerMask);
-    case "regex":
-      return checkRegex(answer, answerMask);
-    case "numeric":
-      return checkNumeric(answer, answerMask);
-    default:
-      return checkExact(answer, answerMask);
+    case "exact": return checkExact(answer, answerMask);
+    case "keywords": return checkKeywords(answer, answerMask);
+    case "regex": return checkRegex(answer, answerMask);
+    case "numeric": return checkNumeric(answer, answerMask);
+    case "multi_choice": return checkMultiChoice(answer, answerMask);
+    default: return checkExact(answer, answerMask);
   }
 }
 
@@ -66,12 +65,8 @@ function checkRegex(answer: string, mask: string): CheckResult {
 function checkNumeric(answer: string, mask: string): CheckResult {
   const EPSILON = 0.01;
   const noRootsPatterns = [
-    "нет корней",
-    "нет решений",
-    "корней нет",
-    "решений нет",
-    "0 корней",
-    "пустое множество",
+    "нет корней", "нет решений", "корней нет",
+    "решений нет", "0 корней", "пустое множество",
   ];
 
   const normalizedAnswer = answer.toLowerCase().trim();
@@ -106,17 +101,58 @@ function checkNumeric(answer: string, mask: string): CheckResult {
   }
 
   const isCorrect = expectedNumbers.every(
-    (exp, i) => Math.abs(exp - answerNumbers[i]) <= EPSILON,
+    (exp, i) => Math.abs(exp - answerNumbers[i]) <= EPSILON
   );
 
   return { isCorrect, expected: expectedNumbers.join(", ") };
 }
 
+/**
+ * Проверка вопроса с несколькими правильными ответами (multi_choice).
+ * Частичное оценивание:
+ *   score = (правильно выбранные - неправильно выбранные) / всего правильных
+ *   минимум 0, максимум 1
+ * isCorrect = true только если score === 1 (все правильные и ни одного лишнего)
+ */
+function checkMultiChoice(answer: string, mask: string): CheckResult {
+  const correctIndices = new Set(
+    mask.split(",").map((v) => v.trim()).filter(Boolean)
+  );
+
+  const studentIndices = new Set(
+    answer.split(",").map((v) => v.trim()).filter(Boolean)
+  );
+
+  const totalCorrect = correctIndices.size;
+  if (totalCorrect === 0) {
+    return { isCorrect: studentIndices.size === 0, partialScore: studentIndices.size === 0 ? 1 : 0 };
+  }
+
+  let correctSelected = 0;
+  let incorrectSelected = 0;
+
+  for (const idx of studentIndices) {
+    if (correctIndices.has(idx)) {
+      correctSelected++;
+    } else {
+      incorrectSelected++;
+    }
+  }
+
+  const rawScore = (correctSelected - incorrectSelected) / totalCorrect;
+  const partialScore = Math.max(0, Math.min(1, rawScore));
+  const isCorrect = correctSelected === totalCorrect && incorrectSelected === 0;
+
+  return {
+    isCorrect,
+    partialScore,
+    expected: "Правильные варианты: " + Array.from(correctIndices).map((i) => Number(i) + 1).join(", "),
+  };
+}
+
 export function checkEquationAnswer(
-  a: number,
-  b: number,
-  c: number,
-  studentAnswer: string,
+  a: number, b: number, c: number,
+  studentAnswer: string
 ): CheckResult {
   const D = b * b - 4 * a * c;
   if (D < 0) return checkNumeric(studentAnswer, "нет корней");

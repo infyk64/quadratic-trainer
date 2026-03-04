@@ -62,10 +62,10 @@ export function GroupManagement() {
       setNewGroupName('');
       setSelectedTeacher(null);
       loadGroups();
-      alert('✅ Группа создана!');
+      alert('Группа создана!');
     } catch (err) {
       console.error('Ошибка создания группы:', err);
-      alert('❌ Не удалось создать группу');
+      alert('Не удалось создать группу');
     }
   };
 
@@ -77,13 +77,13 @@ export function GroupManagement() {
       loadGroups();
     } catch (err) {
       console.error('Ошибка удаления:', err);
-      alert('❌ Не удалось удалить группу');
+      alert('Не удалось удалить группу');
     }
   };
 
   return (
     <div className="page-container">
-      <h1>👥 Управление группами</h1>
+      <h1>Управление группами</h1>
 
       <div className="section-card">
         <h2>Создать новую группу</h2>

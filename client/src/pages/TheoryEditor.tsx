@@ -37,10 +37,10 @@ export function TheoryEditor() {
 
       const imageMarkdown = `![${file.name}](http://localhost:3001${data.url})`;
       setContent(prev => prev + "\n\n" + imageMarkdown);
-      alert("✅ Изображение загружено!");
+      alert("Изображение загружено!");
     } catch (err) {
       console.error("Ошибка загрузки:", err);
-      alert("❌ Не удалось загрузить изображение");
+      alert("Не удалось загрузить изображение");
     } finally {
       setUploading(false);
     }
@@ -61,10 +61,10 @@ export function TheoryEditor() {
 
       const videoMarkdown = `\n\n<video controls width="100%">\n  <source src="http://localhost:3001${data.url}" type="${file.type}">\n</video>\n\n`;
       setContent(prev => prev + videoMarkdown);
-      alert("✅ Видео загружено!");
+      alert("Видео загружено!");
     } catch (err) {
       console.error("Ошибка загрузки:", err);
-      alert("❌ Не удалось загрузить видео");
+      alert("Не удалось загрузить видео");
     } finally {
       setUploading(false);
     }
@@ -88,10 +88,10 @@ export function TheoryEditor() {
       setTitle("");
       setContent("");
       loadMaterials();
-      alert("✅ Материал сохранён в базу данных!");
+      alert("Материал сохранён в базу данных!");
     } catch (err) {
       console.error('Ошибка сохранения:', err);
-      alert("❌ Не удалось сохранить материал");
+      alert("Не удалось сохранить материал");
     }
   };
 
@@ -103,13 +103,13 @@ export function TheoryEditor() {
       loadMaterials();
     } catch (err) {
       console.error('Ошибка удаления:', err);
-      alert("❌ Не удалось удалить материал");
+      alert("Не удалось удалить материал");
     }
   };
 
   return (
     <div className="page-container">
-      <h1>📝 Редактор теоретических материалов</h1>
+      <h1>Редактор теоретических материалов</h1>
 
       <div className="section-card">
         <h2>Создать новый материал</h2>
@@ -139,7 +139,7 @@ export function TheoryEditor() {
               cursor: "pointer",
             }}
           >
-            {showPreview ? "📝 Редактор" : "👁️ Превью"}
+            {showPreview ? "Редактор" : "Превью"}
           </button>
 
           <label style={{
@@ -151,7 +151,7 @@ export function TheoryEditor() {
             border: "none",
             display: "inline-block",
           }}>
-            📷 {uploading ? "Загрузка..." : "Изображение"}
+            {uploading ? "Загрузка..." : "Изображение"}
             <input
               type="file"
               accept="image/*"
@@ -170,7 +170,7 @@ export function TheoryEditor() {
             border: "none",
             display: "inline-block",
           }}>
-            🎥 {uploading ? "Загрузка..." : "Видео"}
+          {uploading ? "Загрузка..." : "Видео"}
             <input
               type="file"
               accept="video/*"

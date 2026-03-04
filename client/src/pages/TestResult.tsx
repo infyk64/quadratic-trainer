@@ -50,7 +50,7 @@ export function TestResult() {
       setAnswers(data.answers);
     } catch (err) {
       console.error("Ошибка загрузки результата:", err);
-      alert("❌ Не удалось загрузить результат");
+      alert("Не удалось загрузить результат");
       navigate("/student/tests");
     } finally {
       setLoading(false);
@@ -59,7 +59,16 @@ export function TestResult() {
 
   const formatEquation = (a: number, b: number, c: number): string => {
     const aStr = a === 1 ? "x²" : a === -1 ? "-x²" : `${a}x²`;
-    const bStr = b === 0 ? "" : b === 1 ? " + x" : b === -1 ? " - x" : b > 0 ? ` + ${b}x` : ` - ${Math.abs(b)}x`;
+    const bStr =
+      b === 0
+        ? ""
+        : b === 1
+          ? " + x"
+          : b === -1
+            ? " - x"
+            : b > 0
+              ? ` + ${b}x`
+              : ` - ${Math.abs(b)}x`;
     const cStr = c === 0 ? "" : c > 0 ? ` + ${c}` : ` - ${Math.abs(c)}`;
     return `${aStr}${bStr}${cStr} = 0`;
   };
@@ -80,10 +89,14 @@ export function TestResult() {
 
   const getStatusText = (status: string): string => {
     switch (status) {
-      case "completed": return "Завершён";
-      case "failed_time": return "Время вышло";
-      case "failed_errors": return "Превышен лимит ошибок";
-      default: return status;
+      case "completed":
+        return "Завершён";
+      case "failed_time":
+        return "Время вышло";
+      case "failed_errors":
+        return "Превышен лимит ошибок";
+      default:
+        return status;
     }
   };
 
@@ -98,7 +111,9 @@ export function TestResult() {
 
   if (loading || !session) {
     return (
-      <div style={{ padding: "40px", textAlign: "center", color: "var(--text2)" }}>
+      <div
+        style={{ padding: "40px", textAlign: "center", color: "var(--text2)" }}
+      >
         Загрузка результата...
       </div>
     );
@@ -108,7 +123,7 @@ export function TestResult() {
 
   return (
     <div className="page-container" style={{ maxWidth: "700px" }}>
-      <h1>📊 Результат теста</h1>
+      <h1>Результат теста</h1>
 
       {/* Основной результат */}
       <div className="section-card" style={{ textAlign: "center" }}>
@@ -127,10 +142,24 @@ export function TestResult() {
             marginBottom: "20px",
           }}
         >
-          <div style={{ fontSize: "56px", fontWeight: 700, color: gradeColor, lineHeight: 1 }}>
+          <div
+            style={{
+              fontSize: "56px",
+              fontWeight: 700,
+              color: gradeColor,
+              lineHeight: 1,
+            }}
+          >
             {session.grade}
           </div>
-          <div style={{ fontSize: "16px", color: gradeColor, fontWeight: 600, marginTop: "4px" }}>
+          <div
+            style={{
+              fontSize: "16px",
+              color: gradeColor,
+              fontWeight: 600,
+              marginTop: "4px",
+            }}
+          >
             {getGradeText(session.grade)}
           </div>
         </div>
@@ -144,27 +173,73 @@ export function TestResult() {
             marginTop: "8px",
           }}
         >
-          <div style={{ padding: "16px", background: "var(--surface2)", borderRadius: "10px" }}>
-            <div style={{ fontSize: "28px", fontWeight: 700, color: "var(--text)" }}>
+          <div
+            style={{
+              padding: "16px",
+              background: "var(--surface2)",
+              borderRadius: "10px",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "28px",
+                fontWeight: 700,
+                color: "var(--text)",
+              }}
+            >
               {session.score_percent}%
             </div>
-            <div style={{ fontSize: "12px", color: "var(--text2)", marginTop: "4px" }}>
+            <div
+              style={{
+                fontSize: "12px",
+                color: "var(--text2)",
+                marginTop: "4px",
+              }}
+            >
               Результат
             </div>
           </div>
-          <div style={{ padding: "16px", background: "var(--surface2)", borderRadius: "10px" }}>
-            <div style={{ fontSize: "28px", fontWeight: 700, color: "#22c55e" }}>
+          <div
+            style={{
+              padding: "16px",
+              background: "var(--surface2)",
+              borderRadius: "10px",
+            }}
+          >
+            <div
+              style={{ fontSize: "28px", fontWeight: 700, color: "#22c55e" }}
+            >
               {session.correct_answers}
             </div>
-            <div style={{ fontSize: "12px", color: "var(--text2)", marginTop: "4px" }}>
+            <div
+              style={{
+                fontSize: "12px",
+                color: "var(--text2)",
+                marginTop: "4px",
+              }}
+            >
               Правильных
             </div>
           </div>
-          <div style={{ padding: "16px", background: "var(--surface2)", borderRadius: "10px" }}>
-            <div style={{ fontSize: "28px", fontWeight: 700, color: "#ef4444" }}>
+          <div
+            style={{
+              padding: "16px",
+              background: "var(--surface2)",
+              borderRadius: "10px",
+            }}
+          >
+            <div
+              style={{ fontSize: "28px", fontWeight: 700, color: "#ef4444" }}
+            >
               {session.errors_count}
             </div>
-            <div style={{ fontSize: "12px", color: "var(--text2)", marginTop: "4px" }}>
+            <div
+              style={{
+                fontSize: "12px",
+                color: "var(--text2)",
+                marginTop: "4px",
+              }}
+            >
               Ошибок
             </div>
           </div>
@@ -185,7 +260,9 @@ export function TestResult() {
           <span>📋 Статус: {getStatusText(session.status)}</span>
           <span>📝 {session.total_questions} вопросов</span>
           {session.finished_at && (
-            <span>⏱ Время: {formatDuration(session.started_at, session.finished_at)}</span>
+            <span>
+              ⏱ Время: {formatDuration(session.started_at, session.finished_at)}
+            </span>
           )}
         </div>
 
@@ -208,7 +285,13 @@ export function TestResult() {
 
       {/* Разбор ответов */}
       <div className="section-card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <h2>Разбор ответов</h2>
           <button
             onClick={() => setShowAnswers(!showAnswers)}
@@ -227,7 +310,14 @@ export function TestResult() {
         </div>
 
         {showAnswers && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "16px" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
+              marginTop: "16px",
+            }}
+          >
             {answers.map((a, i) => (
               <div
                 key={a.id}
@@ -238,17 +328,40 @@ export function TestResult() {
                   borderRadius: "8px",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "6px",
+                  }}
+                >
                   <span style={{ fontSize: "13px", color: "var(--text2)" }}>
                     #{i + 1} •
-                    {a.question_type === "equation" ? " 📐" : a.question_type === "theory" ? " 📚" : " ✏️"}
+                    {a.question_type === "equation"
+                      ? "Уравнение"
+                      : a.question_type === "theory"
+                        ? "Теория"
+                        : "Вопрос"}
                   </span>
-                  <span style={{ fontSize: "13px", fontWeight: 600, color: a.is_correct ? "#22c55e" : "#ef4444" }}>
-                    {a.is_correct ? "✅ Верно" : "❌ Неверно"}
+                  <span
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      color: a.is_correct ? "#22c55e" : "#ef4444",
+                    }}
+                  >
+                    {a.is_correct ? "Верно" : "Неверно"}
                   </span>
                 </div>
 
-                <div style={{ color: "var(--text)", fontSize: "14px", marginBottom: "6px" }}>
+                <div
+                  style={{
+                    color: "var(--text)",
+                    fontSize: "14px",
+                    marginBottom: "6px",
+                  }}
+                >
                   {a.question_type === "equation"
                     ? formatEquation(a.eq_a!, a.eq_b!, a.eq_c!)
                     : a.question_text}
@@ -256,15 +369,24 @@ export function TestResult() {
 
                 <div style={{ fontSize: "13px" }}>
                   <span style={{ color: "var(--text2)" }}>Ваш ответ: </span>
-                  <span style={{ color: a.is_correct ? "#22c55e" : "#ef4444", fontWeight: 500 }}>
+                  <span
+                    style={{
+                      color: a.is_correct ? "#22c55e" : "#ef4444",
+                      fontWeight: 500,
+                    }}
+                  >
                     {a.student_answer || "(пусто)"}
                   </span>
                 </div>
 
                 {!a.is_correct && (
                   <div style={{ fontSize: "13px", marginTop: "2px" }}>
-                    <span style={{ color: "var(--text2)" }}>Правильный ответ: </span>
-                    <span style={{ color: "#22c55e", fontWeight: 500 }}>{a.answer_mask}</span>
+                    <span style={{ color: "var(--text2)" }}>
+                      Правильный ответ:{" "}
+                    </span>
+                    <span style={{ color: "#22c55e", fontWeight: 500 }}>
+                      {a.answer_mask}
+                    </span>
                   </div>
                 )}
               </div>

@@ -28,21 +28,29 @@ export function Trainer() {
 
   // Для открытого ввода
   const [openAnswer, setOpenAnswer] = useState("");
-  const [openResult, setOpenResult] = useState<{ isCorrect: boolean; expected?: string } | null>(null);
+  const [openResult, setOpenResult] = useState<{
+    isCorrect: boolean;
+    expected?: string;
+  } | null>(null);
 
   // Для теоретических вопросов
   const [theoryQuestion, setTheoryQuestion] = useState<TheoryQ | null>(null);
   const [theoryAnswer, setTheoryAnswer] = useState("");
-  const [theoryResult, setTheoryResult] = useState<{ isCorrect: boolean; expected?: string } | null>(null);
+  const [theoryResult, setTheoryResult] = useState<{
+    isCorrect: boolean;
+    expected?: string;
+  } | null>(null);
   const [isTheoryRound, setIsTheoryRound] = useState(false);
 
   const loadQuestion = async () => {
     // Если включена теория — чередуем (каждый 3-й вопрос — теория)
     if (includeTheory && (score.total + 1) % 3 === 0) {
       try {
-        const { data: questions } = await api.get<TheoryQ[]>("/theory-questions");
+        const { data: questions } =
+          await api.get<TheoryQ[]>("/theory-questions");
         if (questions.length > 0) {
-          const randomQ = questions[Math.floor(Math.random() * questions.length)];
+          const randomQ =
+            questions[Math.floor(Math.random() * questions.length)];
           setTheoryQuestion(randomQ);
           setIsTheoryRound(true);
           setTheoryAnswer("");
@@ -56,7 +64,9 @@ export function Trainer() {
     }
 
     // Обычный вопрос (уравнение)
-    const { data } = await api.get<Question>(`/questions/generate?mode=${mode}`);
+    const { data } = await api.get<Question>(
+      `/questions/generate?mode=${mode}`,
+    );
     setQuestion(data);
     setIsTheoryRound(false);
     setTheoryQuestion(null);
@@ -83,15 +93,24 @@ export function Trainer() {
   const checkOptionsAnswer = async () => {
     if (!question || selected.length === 0) return;
 
-    const correctIds = question.options.filter((o) => o.isCorrect).map((o) => o.id);
+    const correctIds = question.options
+      .filter((o) => o.isCorrect)
+      .map((o) => o.id);
     const isCorrect =
-      correctIds.length === selected.length && correctIds.every((id) => selected.includes(id));
+      correctIds.length === selected.length &&
+      correctIds.every((id) => selected.includes(id));
 
     setChecked(true);
-    setScore((s) => ({ correct: s.correct + (isCorrect ? 1 : 0), total: s.total + 1 }));
+    setScore((s) => ({
+      correct: s.correct + (isCorrect ? 1 : 0),
+      total: s.total + 1,
+    }));
 
     try {
-      await api.post("/attempts", { userId: parseInt(localStorage.getItem("userId") || "0"), isCorrect });
+      await api.post("/attempts", {
+        userId: parseInt(localStorage.getItem("userId") || "0"),
+        isCorrect,
+      });
     } catch (err) {
       console.error("Ошибка сохранения:", err);
     }
@@ -104,12 +123,19 @@ export function Trainer() {
     try {
       const { data } = await api.post("/answers/check-open", {
         answer: openAnswer.trim(),
-        equation: { a: question.equation.a, b: question.equation.b, c: question.equation.c },
+        equation: {
+          a: question.equation.a,
+          b: question.equation.b,
+          c: question.equation.c,
+        },
       });
 
       setOpenResult(data);
       setChecked(true);
-      setScore((s) => ({ correct: s.correct + (data.isCorrect ? 1 : 0), total: s.total + 1 }));
+      setScore((s) => ({
+        correct: s.correct + (data.isCorrect ? 1 : 0),
+        total: s.total + 1,
+      }));
 
       await api.post("/attempts", {
         userId: parseInt(localStorage.getItem("userId") || "0"),
@@ -132,7 +158,10 @@ export function Trainer() {
       });
 
       setTheoryResult(data);
-      setScore((s) => ({ correct: s.correct + (data.isCorrect ? 1 : 0), total: s.total + 1 }));
+      setScore((s) => ({
+        correct: s.correct + (data.isCorrect ? 1 : 0),
+        total: s.total + 1,
+      }));
 
       await api.post("/attempts", {
         userId: parseInt(localStorage.getItem("userId") || "0"),
@@ -147,7 +176,8 @@ export function Trainer() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       if (isTheoryRound && !theoryResult) checkTheoryAnswer();
-      else if (!isTheoryRound && inputMode === "keyboard" && !openResult) checkOpenAnswer();
+      else if (!isTheoryRound && inputMode === "keyboard" && !openResult)
+        checkOpenAnswer();
     }
   };
 
@@ -156,7 +186,7 @@ export function Trainer() {
       <h1>Квадратные уравнения</h1>
 
       <div className="score">
-        ✅ {score.correct} / {score.total}
+        {score.correct} / {score.total}
       </div>
 
       <ModeSelector mode={mode} onChange={handleModeChange} />
@@ -170,7 +200,10 @@ export function Trainer() {
             borderRadius: "6px",
             fontSize: "13px",
             cursor: "pointer",
-            border: inputMode === "options" ? "2px solid #6366f1" : "1px solid #e0e0e0",
+            border:
+              inputMode === "options"
+                ? "2px solid #6366f1"
+                : "1px solid #e0e0e0",
             background: inputMode === "options" ? "#eef2ff" : "white",
             color: inputMode === "options" ? "#6366f1" : "#666",
           }}
@@ -184,7 +217,10 @@ export function Trainer() {
             borderRadius: "6px",
             fontSize: "13px",
             cursor: "pointer",
-            border: inputMode === "keyboard" ? "2px solid #6366f1" : "1px solid #e0e0e0",
+            border:
+              inputMode === "keyboard"
+                ? "2px solid #6366f1"
+                : "1px solid #e0e0e0",
             background: inputMode === "keyboard" ? "#eef2ff" : "white",
             color: inputMode === "keyboard" ? "#6366f1" : "#666",
           }}
@@ -231,10 +267,22 @@ export function Trainer() {
               textAlign: "center",
             }}
           >
-            <div style={{ fontSize: "13px", color: "#888", marginBottom: "8px" }}>📚 Вопрос по теории</div>
-            <div style={{ fontSize: "18px", fontWeight: 600, color: "#1a1a2e" }}>{theoryQuestion.question}</div>
+            <div
+              style={{ fontSize: "13px", color: "#888", marginBottom: "8px" }}
+            >
+              Вопрос по теории
+            </div>
+            <div
+              style={{ fontSize: "18px", fontWeight: 600, color: "#1a1a2e" }}
+            >
+              {theoryQuestion.question}
+            </div>
             {theoryQuestion.hint && !theoryResult && (
-              <div style={{ fontSize: "13px", color: "#888", marginTop: "8px" }}>💡 {theoryQuestion.hint}</div>
+              <div
+                style={{ fontSize: "13px", color: "#888", marginTop: "8px" }}
+              >
+               {theoryQuestion.hint}
+              </div>
             )}
           </div>
 
@@ -254,7 +302,11 @@ export function Trainer() {
               border: theoryResult
                 ? `2px solid ${theoryResult.isCorrect ? "#22c55e" : "#ef4444"}`
                 : "1px solid #e0e0e0",
-              background: theoryResult ? (theoryResult.isCorrect ? "#f0fdf4" : "#fef2f2") : "white",
+              background: theoryResult
+                ? theoryResult.isCorrect
+                  ? "#f0fdf4"
+                  : "#fef2f2"
+                : "white",
               textAlign: "center",
               outline: "none",
             }}
@@ -265,8 +317,8 @@ export function Trainer() {
               className={`result ${theoryResult.isCorrect ? "result-correct" : "result-wrong"}`}
             >
               {theoryResult.isCorrect
-                ? "✅ Верно!"
-                : `❌ Неверно. Правильный ответ: ${theoryResult.expected}`}
+                ? "Верно!"
+                : `Неверно. Правильный ответ: ${theoryResult.expected}`}
             </div>
           )}
 
@@ -289,7 +341,11 @@ export function Trainer() {
       {/* ===== Уравнение ===== */}
       {question && !isTheoryRound && (
         <>
-          <EquationCard a={question.equation.a} b={question.equation.b} c={question.equation.c} />
+          <EquationCard
+            a={question.equation.a}
+            b={question.equation.b}
+            c={question.equation.c}
+          />
 
           {/* Режим вариантов */}
           {inputMode === "options" && (
@@ -306,14 +362,18 @@ export function Trainer() {
                 <>
                   <div
                     className={`result ${
-                      question.options.filter((o) => o.isCorrect).every((o) => selected.includes(o.id))
+                      question.options
+                        .filter((o) => o.isCorrect)
+                        .every((o) => selected.includes(o.id))
                         ? "result-correct"
                         : "result-wrong"
                     }`}
                   >
-                    {question.options.filter((o) => o.isCorrect).every((o) => selected.includes(o.id))
-                      ? "✅ Верно!"
-                      : `❌ Неверно. Правильный ответ: ${question.options
+                    {question.options
+                      .filter((o) => o.isCorrect)
+                      .every((o) => selected.includes(o.id))
+                      ? "Верно!"
+                      : `Неверно. Правильный ответ: ${question.options
                           .filter((o) => o.isCorrect)
                           .map((o) => o.label)
                           .join(", ")}`}
@@ -329,7 +389,11 @@ export function Trainer() {
               )}
 
               {!checked ? (
-                <button className="btn-primary" onClick={checkOptionsAnswer} disabled={selected.length === 0}>
+                <button
+                  className="btn-primary"
+                  onClick={checkOptionsAnswer}
+                  disabled={selected.length === 0}
+                >
                   Проверить
                 </button>
               ) : (
@@ -361,7 +425,11 @@ export function Trainer() {
                   border: openResult
                     ? `2px solid ${openResult.isCorrect ? "#22c55e" : "#ef4444"}`
                     : "1px solid #e0e0e0",
-                  background: openResult ? (openResult.isCorrect ? "#f0fdf4" : "#fef2f2") : "white",
+                  background: openResult
+                    ? openResult.isCorrect
+                      ? "#f0fdf4"
+                      : "#fef2f2"
+                    : "white",
                   textAlign: "center",
                   outline: "none",
                 }}
@@ -369,7 +437,14 @@ export function Trainer() {
 
               {/* Быстрые кнопки */}
               {!openResult && (
-                <div style={{ display: "flex", gap: "6px", justifyContent: "center", flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "6px",
+                    justifyContent: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
                   {["нет корней"].map((hint) => (
                     <button
                       key={hint}
@@ -392,10 +467,12 @@ export function Trainer() {
 
               {openResult && (
                 <>
-                  <div className={`result ${openResult.isCorrect ? "result-correct" : "result-wrong"}`}>
+                  <div
+                    className={`result ${openResult.isCorrect ? "result-correct" : "result-wrong"}`}
+                  >
                     {openResult.isCorrect
-                      ? "✅ Верно!"
-                      : `❌ Неверно. Правильный ответ: ${openResult.expected}`}
+                      ? "Верно!"
+                      : `Неверно. Правильный ответ: ${openResult.expected}`}
                   </div>
                   <Solution
                     a={question.equation.a}
@@ -408,7 +485,11 @@ export function Trainer() {
               )}
 
               {!openResult ? (
-                <button className="btn-primary" onClick={checkOpenAnswer} disabled={!openAnswer.trim()}>
+                <button
+                  className="btn-primary"
+                  onClick={checkOpenAnswer}
+                  disabled={!openAnswer.trim()}
+                >
                   Проверить (Enter)
                 </button>
               ) : (

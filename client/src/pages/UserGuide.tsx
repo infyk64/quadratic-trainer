@@ -7,14 +7,14 @@ export function UserGuide() {
   const role = localStorage.getItem("role") || "student";
 
   const tabs: { key: Tab; label: string; visible: boolean }[] = [
-    { key: "student", label: "🎓 Для студента", visible: true },
-    { key: "teacher", label: "📚 Для преподавателя", visible: role === "teacher" || role === "admin" },
-    { key: "admin", label: "👑 Для администратора", visible: role === "admin" },
+    { key: "student", label: "Для студента", visible: true },
+    { key: "teacher", label: "Для преподавателя", visible: role === "teacher" || role === "admin" },
+    { key: "admin", label: "Для администратора", visible: role === "admin" },
   ];
 
   return (
     <div className="page-container">
-      <h1>📖 Справочник — Руководство пользователя</h1>
+      <h1>Справочник — Руководство пользователя</h1>
 
       {/* Табы */}
       <div style={{ display: "flex", gap: "8px", marginBottom: "24px" }}>

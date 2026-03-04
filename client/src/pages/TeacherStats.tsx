@@ -80,12 +80,12 @@ export function TeacherStats() {
 
   return (
     <div className="page-container">
-      <h1>📊 Статистика</h1>
+      <h1>Статистика</h1>
 
       <div style={{ display: "flex", gap: "8px", marginBottom: "24px" }}>
-        {tabBtn("group", "👥 По группе")}
-        {tabBtn("test", "📝 По тесту")}
-        {tabBtn("student", "🎓 По ученику")}
+        {tabBtn("group", "По группе")}
+        {tabBtn("test", "По тесту")}
+        {tabBtn("student", "По ученику")}
       </div>
 
       {/* ===== Выбор ===== */}
@@ -311,7 +311,7 @@ export function TeacherStats() {
                       <td style={td}>{s.test_title}</td>
                       <td style={{ ...td, fontWeight: 700, color: gradeColor(s.grade) }}>{s.grade}</td>
                       <td style={td}>{s.score_percent}%</td>
-                      <td style={td}>{s.status === "completed" ? "✅" : s.status === "failed_time" ? "⏱" : "❌"}</td>
+                      <td style={td}>{s.status === "completed" ? "" : s.status === "failed_time" ? "" : ""}</td>
                       <td style={td}>{s.finished_at ? new Date(s.finished_at).toLocaleDateString() : "—"}</td>
                     </tr>
                   ))}
