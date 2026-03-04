@@ -4,9 +4,9 @@ interface Props {
 }
 
 const MODES = [
-  { value: 'full',       label: '📐 Полные',    hint: 'ax² + bx + c = 0' },
-  { value: 'incomplete', label: '📏 Неполные',  hint: 'ax² + c = 0' },
-  { value: 'random',     label: '🎲 Случайные', hint: 'любые' },
+  { value: 'full',       label: 'Полные',    hint: 'ax² + bx + c = 0' },
+  { value: 'incomplete', label: 'Неполные',  hint: 'ax² + c = 0' },
+  { value: 'random',     label: 'Случайные', hint: 'любые' },
 ] as const;
 
 export function ModeSelector({ mode, onChange }: Props) {

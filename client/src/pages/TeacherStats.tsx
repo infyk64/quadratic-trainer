@@ -68,7 +68,7 @@ export function TeacherStats() {
     <button onClick={() => switchTab(key)} style={{
       padding: "10px 20px", borderRadius: "8px", cursor: "pointer", fontSize: "14px", fontWeight: tab === key ? 600 : 400,
       border: tab === key ? "2px solid var(--accent)" : "1px solid var(--border)",
-      background: tab === key ? "var(--accent2)" : "var(--surface)", color: "white",
+      background: tab === key ? "var(--accent2)" : "var(--surface)", color: tab === key ? "white" : "var(--text)",
     }}>{label}</button>
   );
 
@@ -96,21 +96,21 @@ export function TeacherStats() {
             <button key={g.id} onClick={() => loadGroupStats(g.id)} style={{
               padding: "8px 16px", borderRadius: "6px", cursor: "pointer",
               border: selectedGroupId === g.id ? "2px solid var(--accent)" : "1px solid var(--border)",
-              background: selectedGroupId === g.id ? "var(--accent2)" : "var(--surface2)", color: "white",
+              background: selectedGroupId === g.id ? "var(--accent2)" : "var(--surface2)", color: selectedGroupId === g.id ? "white" : "var(--text)",
             }}>{g.name}</button>
           ))}
           {tab === "test" && tests.map(t => (
             <button key={t.id} onClick={() => loadTestStats(t.id)} style={{
               padding: "8px 16px", borderRadius: "6px", cursor: "pointer",
               border: selectedTestId === t.id ? "2px solid var(--accent)" : "1px solid var(--border)",
-              background: selectedTestId === t.id ? "var(--accent2)" : "var(--surface2)", color: "white",
+              background: selectedTestId === t.id ? "var(--accent2)" : "var(--surface2)", color: selectedTestId === t.id ? "white" : "var(--text)",
             }}>{t.title}</button>
           ))}
           {tab === "student" && students.map(s => (
             <button key={s.id} onClick={() => loadStudentStats(s.id)} style={{
               padding: "8px 16px", borderRadius: "6px", cursor: "pointer",
               border: selectedStudentId === s.id ? "2px solid var(--accent)" : "1px solid var(--border)",
-              background: selectedStudentId === s.id ? "var(--accent2)" : "var(--surface2)", color: "white",
+              background: selectedStudentId === s.id ? "var(--accent2)" : "var(--surface2)", color: selectedStudentId === s.id ? "white" : "var(--text)",
             }}>{s.username}</button>
           ))}
         </div>

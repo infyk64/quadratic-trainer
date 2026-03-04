@@ -30,7 +30,7 @@ export function TheoryView() {
 
   return (
     <div className="page-container">
-      <h1>📚 Теоретические материалы</h1>
+      <h1>Теоретические материалы</h1>
 
       <div
         style={{
@@ -61,7 +61,10 @@ export function TheoryView() {
                       selectedMaterial?.id === material.id
                         ? "var(--accent2)"
                         : "var(--surface2)",
-                    color: "white",
+                    color:
+                      selectedMaterial?.id === material.id
+                        ? "white"
+                        : "var(--text)",
                     border:
                       selectedMaterial?.id === material.id
                         ? "2px solid var(--accent)"
@@ -70,6 +73,7 @@ export function TheoryView() {
                     cursor: "pointer",
                     textAlign: "left",
                     fontSize: "15px",
+                    fontWeight: 600,
                     transition: "all 0.2s",
                   }}
                 >

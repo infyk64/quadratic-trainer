@@ -25,6 +25,11 @@ interface Group {
   name: string;
 }
 
+interface TheoryMaterial {
+  id: number;
+  title: string;
+}
+
 export function TestEditor() {
   const navigate = useNavigate();
   const [title, setTitle] = useState("");
@@ -38,6 +43,8 @@ export function TestEditor() {
   const [saving, setSaving] = useState(false);
   const [deadline, setDeadline] = useState("");
   const [maxAttempts, setMaxAttempts] = useState<number | "">("");
+  const [theoryId, setTheoryId] = useState<number | "">("");
+  const [theoryMaterials, setTheoryMaterials] = useState<TheoryMaterial[]>([]);
 
   const [qType, setQType] = useState<"equation" | "theory" | "open" | "single_choice" | "multi_choice">("equation");
   const [eqA, setEqA] = useState(1);
@@ -62,6 +69,7 @@ export function TestEditor() {
 
   useEffect(() => {
     api.get("/groups").then(({ data }) => setGroups(data)).catch(console.error);
+    api.get("/theory-materials").then(({ data }) => setTheoryMaterials(data)).catch(console.error);
   }, []);
 
   const formatEq = (a: number, b: number, c: number) => {
@@ -181,6 +189,7 @@ export function TestEditor() {
         max_errors: maxErrors || null,
         deadline: deadline || null,
         max_attempts: maxAttempts || null,
+        theory_id: theoryId || null,
         grade_excellent: gradeExcellent,
         grade_good: gradeGood,
         grade_satisf: gradeSatisf,
@@ -226,6 +235,22 @@ export function TestEditor() {
           <div>
             <label style={lbl}>Описание</label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Описание..." style={{ ...inp, minHeight: "60px", resize: "vertical" }} />
+          </div>
+          <div>
+            <label style={lbl}>Теоретический материал</label>
+            <select
+              value={theoryId}
+              onChange={(e) => setTheoryId(e.target.value ? parseInt(e.target.value) : "")}
+              style={inp}
+            >
+              <option value="">— Без привязки к теории —</option>
+              {theoryMaterials.map((tm) => (
+                <option key={tm.id} value={tm.id}>{tm.title}</option>
+              ))}
+            </select>
+            <div style={{ fontSize: "12px", color: "var(--text2)", marginTop: "4px" }}>
+              Студенты увидят ссылку на теорию перед началом теста
+            </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
             <div>
@@ -276,7 +301,7 @@ export function TestEditor() {
             <button key={t} onClick={() => setQType(t)} style={{
               padding: "8px 16px", borderRadius: "6px", cursor: "pointer",
               border: qType === t ? "2px solid var(--accent)" : "1px solid var(--border)",
-              background: qType === t ? "var(--accent2)" : "var(--surface2)", color: "white", fontSize: "13px",
+              background: qType === t ? "var(--accent2)" : "var(--surface2)", color: qType === t ? "white" : "var(--text)", fontSize: "13px",
             }}>
               {questionTypeLabels[t]}
             </button>
@@ -434,7 +459,7 @@ export function TestEditor() {
               <button key={g.id} onClick={() => setSelectedGroups((prev) => prev.includes(g.id) ? prev.filter((id) => id !== g.id) : [...prev, g.id])} style={{
                 padding: "8px 16px", borderRadius: "6px", cursor: "pointer",
                 border: selectedGroups.includes(g.id) ? "2px solid var(--accent)" : "1px solid var(--border)",
-                background: selectedGroups.includes(g.id) ? "var(--accent2)" : "var(--surface2)", color: "white",
+                background: selectedGroups.includes(g.id) ? "var(--accent2)" : "var(--surface2)", color: selectedGroups.includes(g.id) ? "white" : "var(--text)",
               }}>
                 {selectedGroups.includes(g.id) ? "V " : ""}{g.name}
               </button>

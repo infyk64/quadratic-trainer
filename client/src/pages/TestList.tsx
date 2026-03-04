@@ -97,7 +97,7 @@ export function TestList() {
                         fontSize: "12px",
                         fontWeight: 600,
                         background: test.is_published ? "#22c55e" : "var(--surface2)",
-                        color: "white",
+                        color: test.is_published ? "white" : "var(--text2)",
                       }}
                     >
                       {test.is_published ? "Опубликован" : "Черновик"}

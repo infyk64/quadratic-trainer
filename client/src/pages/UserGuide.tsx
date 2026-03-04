@@ -29,7 +29,7 @@ export function UserGuide() {
                 borderRadius: "8px",
                 border: activeTab === tab.key ? "2px solid var(--accent)" : "1px solid var(--border)",
                 background: activeTab === tab.key ? "var(--accent2)" : "var(--surface)",
-                color: "white",
+                color: activeTab === tab.key ? "white" : "var(--text)",
                 cursor: "pointer",
                 fontSize: "15px",
                 fontWeight: activeTab === tab.key ? 600 : 400,

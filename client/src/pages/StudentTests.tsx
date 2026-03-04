@@ -15,6 +15,8 @@ interface AvailableTest {
   author_name: string;
   deadline?: string;
   created_at: string;
+  theory_id?: number;
+  theory_title?: string;
   // Результат (если уже проходил)
   session_id?: number;
   session_status?: string;
@@ -91,7 +93,7 @@ export function StudentTests() {
 
   return (
     <div className="page-container">
-      <h1>📝 Мои тесты</h1>
+      <h1>Мои тесты</h1>
 
       {tests.length === 0 ? (
         <div className="section-card">
@@ -147,6 +149,26 @@ export function StudentTests() {
                         </span>
                       )}
                     </div>
+
+                    {test.theory_title && (
+                      <div style={{ marginTop: "8px" }}>
+                        <button
+                          onClick={() => navigate("/theory")}
+                          style={{
+                            padding: "4px 12px",
+                            background: "var(--surface2)",
+                            border: "1px solid var(--border)",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            color: "var(--accent)",
+                            fontSize: "13px",
+                            fontWeight: 500,
+                          }}
+                        >
+                          📖 Теория: {test.theory_title}
+                        </button>
+                      </div>
+                    )}
 
                     {/* Шкала оценивания */}
                     <div style={{ display: "flex", gap: "12px", fontSize: "12px", color: "var(--text2)", marginTop: "6px" }}>

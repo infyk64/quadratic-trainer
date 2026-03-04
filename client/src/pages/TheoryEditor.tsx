@@ -22,12 +22,14 @@ export function TheoryEditor() {
     }
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const formData = new FormData();
     formData.append("file", file);
+
+    const isVideo = file.type.startsWith("video/");
 
     setUploading(true);
     try {
@@ -35,38 +37,22 @@ export function TheoryEditor() {
         headers: { "Content-Type": "multipart/form-data" }
       });
 
-      const imageMarkdown = `![${file.name}](http://localhost:3001${data.url})`;
-      setContent(prev => prev + "\n\n" + imageMarkdown);
-      alert("Изображение загружено!");
-    } catch (err) {
+      if (isVideo) {
+        const videoMarkdown = `\n\n<video controls width="100%">\n  <source src="http://localhost:3001${data.url}" type="${file.type}">\n</video>\n\n`;
+        setContent(prev => prev + videoMarkdown);
+      } else {
+        const imageMarkdown = `![${file.name}](http://localhost:3001${data.url})`;
+        setContent(prev => prev + "\n\n" + imageMarkdown);
+      }
+      alert(isVideo ? "Видео загружено!" : "Изображение загружено!");
+    } catch (err: any) {
       console.error("Ошибка загрузки:", err);
-      alert("Не удалось загрузить изображение");
+      const msg = err.response?.data?.error || "Не удалось загрузить файл";
+      alert(msg);
     } finally {
       setUploading(false);
-    }
-  };
-
-  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    setUploading(true);
-    try {
-      const { data } = await api.post("/media/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
-
-      const videoMarkdown = `\n\n<video controls width="100%">\n  <source src="http://localhost:3001${data.url}" type="${file.type}">\n</video>\n\n`;
-      setContent(prev => prev + videoMarkdown);
-      alert("Видео загружено!");
-    } catch (err) {
-      console.error("Ошибка загрузки:", err);
-      alert("Не удалось загрузить видео");
-    } finally {
-      setUploading(false);
+      // Сбрасываем input чтобы можно было загрузить тот же файл повторно
+      e.target.value = "";
     }
   };
 
@@ -133,10 +119,12 @@ export function TheoryEditor() {
             style={{
               padding: "8px 16px",
               background: showPreview ? "var(--accent2)" : "var(--surface2)",
-              color: "white",
-              border: "none",
+              color: showPreview ? "white" : "var(--text)",
+              border: showPreview ? "none" : "1px solid var(--border)",
               borderRadius: "6px",
               cursor: "pointer",
+              fontWeight: 600,
+              fontSize: "13px",
             }}
           >
             {showPreview ? "Редактор" : "Превью"}
@@ -145,40 +133,29 @@ export function TheoryEditor() {
           <label style={{
             padding: "8px 16px",
             background: uploading ? "var(--surface2)" : "var(--accent)",
-            color: "white",
+            color: uploading ? "var(--text2)" : "white",
             borderRadius: "6px",
             cursor: uploading ? "not-allowed" : "pointer",
             border: "none",
-            display: "inline-block",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            fontSize: "13px",
+            fontWeight: 600,
           }}>
-            {uploading ? "Загрузка..." : "Изображение"}
+            {uploading ? "Загрузка..." : "Добавить медиа"}
             <input
               type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
+              accept="image/*,video/*"
+              onChange={handleMediaUpload}
               disabled={uploading}
               style={{ display: "none" }}
             />
           </label>
+        </div>
 
-          <label style={{
-            padding: "8px 16px",
-            background: uploading ? "var(--surface2)" : "var(--accent3)",
-            color: "white",
-            borderRadius: "6px",
-            cursor: uploading ? "not-allowed" : "pointer",
-            border: "none",
-            display: "inline-block",
-          }}>
-          {uploading ? "Загрузка..." : "Видео"}
-            <input
-              type="file"
-              accept="video/*"
-              onChange={handleVideoUpload}
-              disabled={uploading}
-              style={{ display: "none" }}
-            />
-          </label>
+        <div style={{ fontSize: "12px", color: "var(--text2)", marginBottom: "12px" }}>
+          Поддерживаются изображения (PNG, JPG, GIF) и видео (MP4, WebM)
         </div>
 
         {showPreview ? (
@@ -251,14 +228,8 @@ export function TheoryEditor() {
                   <h3 style={{ margin: 0 }}>{material.title}</h3>
                   <button
                     onClick={() => deleteMaterial(material.id)}
-                    style={{
-                      padding: "6px 12px",
-                      background: "var(--red)",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
+                    className="btn-danger"
+                    style={{ padding: "6px 14px" }}
                   >
                     Удалить
                   </button>

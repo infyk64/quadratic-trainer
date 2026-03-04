@@ -16,6 +16,8 @@ interface SessionResult {
   grade_satisf: number;
   started_at: string;
   finished_at: string;
+  theory_id?: number;
+  theory_title?: string;
 }
 
 interface AnswerResult {
@@ -257,8 +259,8 @@ export function TestResult() {
             flexWrap: "wrap",
           }}
         >
-          <span>📋 Статус: {getStatusText(session.status)}</span>
-          <span>📝 {session.total_questions} вопросов</span>
+          <span> Статус: {getStatusText(session.status)}</span>
+          <span> {session.total_questions} вопросов</span>
           {session.finished_at && (
             <span>
               ⏱ Время: {formatDuration(session.started_at, session.finished_at)}
@@ -282,6 +284,41 @@ export function TestResult() {
           <span>«3» от {session.grade_satisf}%</span>
         </div>
       </div>
+
+      {/* Ссылка на теоретический материал */}
+      {session.theory_title && (
+        <div className="section-card" style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          background: session.grade <= 3 ? "#fef3c720" : "var(--surface)",
+          border: session.grade <= 3 ? "1px solid #f59e0b40" : "1px solid var(--border)",
+        }}>
+          <div>
+            <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--text)" }}>
+              📖 Теоретический материал
+            </div>
+            <div style={{ fontSize: "13px", color: "var(--text2)", marginTop: "4px" }}>
+              {session.theory_title}
+              {session.grade <= 3 && " — рекомендуем повторить перед пересдачей"}
+            </div>
+          </div>
+          <button
+            onClick={() => navigate("/theory")}
+            style={{
+              padding: "8px 18px",
+              background: "var(--accent2)",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "13px",
+              fontWeight: 600,
+              flexShrink: 0,
+            }}
+          >
+            Изучить теорию
+          </button>
+        </div>
+      )}
 
       {/* Разбор ответов */}
       <div className="section-card">

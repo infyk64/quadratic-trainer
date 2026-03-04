@@ -152,9 +152,9 @@ function App() {
 
           <div className="nav-right">
             <span className="nav-user">
-              {user.role === "admin" && "👑 "}
-              {user.role === "teacher" && "📚 "}
-              {user.role === "student" && "🎓 "}
+              {user.role === "admin" && ""}
+              {user.role === "teacher" && ""}
+              {user.role === "student" && ""}
               {user.username}
             </span>
             <button className="nav-link" onClick={handleLogout}>

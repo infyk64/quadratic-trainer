@@ -14,14 +14,16 @@ router.get(
       const isAdmin = req.user!.role === "admin";
       const result = await pool.query(
         `SELECT t.*, u.username as author_name,
+            tm.title as theory_title,
             COUNT(DISTINCT tq.id) as questions_count,
             COUNT(DISTINCT ta.id) as assignments_count
      FROM tests t
      LEFT JOIN users u ON t.created_by = u.id
+     LEFT JOIN theory_materials tm ON t.theory_id = tm.id
      LEFT JOIN test_questions tq ON t.id = tq.test_id
      LEFT JOIN test_assignments ta ON t.id = ta.test_id
      ${isAdmin ? "" : "WHERE t.created_by = $1"}
-     GROUP BY t.id, u.username
+     GROUP BY t.id, u.username, tm.title
      ORDER BY t.created_at DESC`,
         isAdmin ? [] : [req.user!.userId],
       );
@@ -39,7 +41,8 @@ router.get("/student/available", authenticate, async (req, res) => {
     const result = await pool.query(
       `SELECT DISTINCT t.id, t.title, t.description, t.time_limit, t.max_errors,
               t.grade_excellent, t.grade_good, t.grade_satisf, t.max_attempts,
-              t.created_at, u.username as author_name,
+              t.theory_id, t.created_at, u.username as author_name,
+              tm.title as theory_title,
               COUNT(DISTINCT tq.id) as questions_count,
               ta.deadline,
               ts.id as session_id, ts.status as session_status,
@@ -48,10 +51,11 @@ router.get("/student/available", authenticate, async (req, res) => {
        JOIN test_assignments ta ON t.id = ta.test_id
        JOIN group_members gm ON ta.group_id = gm.group_id
        LEFT JOIN users u ON t.created_by = u.id
+       LEFT JOIN theory_materials tm ON t.theory_id = tm.id
        LEFT JOIN test_questions tq ON t.id = tq.test_id
        LEFT JOIN test_sessions ts ON t.id = ts.test_id AND ts.student_id = $1
        WHERE gm.student_id = $1 AND t.is_published = true
-       GROUP BY t.id, u.username, ta.deadline, ts.id, ts.status, ts.grade, ts.score_percent
+       GROUP BY t.id, u.username, tm.title, ta.deadline, ts.id, ts.status, ts.grade, ts.score_percent
        ORDER BY t.created_at DESC`,
       [studentId],
     );
@@ -79,7 +83,11 @@ router.get("/:id", authenticate, async (req, res) => {
 
     let questions = questionsResult.rows;
     if (req.user!.role === "student") {
-      questions = questions.sort(() => Math.random() - 0.5);
+      // Fisher-Yates shuffle — честное перемешивание
+      for (let i = questions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [questions[i], questions[j]] = [questions[j], questions[i]];
+      }
     }
 
     const assignmentsResult = await pool.query(
@@ -114,6 +122,7 @@ router.post(
         grade_excellent,
         grade_good,
         grade_satisf,
+        theory_id,
         questions,
       } = req.body;
       if (!title?.trim())
@@ -123,8 +132,8 @@ router.post(
 
       const testResult = await client.query(
         `INSERT INTO tests (title, description, created_by, time_limit, max_errors,
-        grade_excellent, grade_good, grade_satisf, max_attempts)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        grade_excellent, grade_good, grade_satisf, max_attempts, theory_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
         [
           title.trim(),
           description?.trim() || null,
@@ -135,6 +144,7 @@ router.post(
           grade_good || 75,
           grade_satisf || 60,
           max_attempts || null,
+          theory_id || null,
         ],
       );
       const test = testResult.rows[0];
@@ -195,6 +205,7 @@ router.put(
         grade_good,
         grade_satisf,
         is_published,
+        theory_id,
         questions,
       } = req.body;
 
@@ -202,8 +213,8 @@ router.put(
         `UPDATE tests SET title=COALESCE($1,title), description=$2, time_limit=$3, max_errors=$4,
         grade_excellent=COALESCE($5,grade_excellent), grade_good=COALESCE($6,grade_good),
         grade_satisf=COALESCE($7,grade_satisf), is_published=COALESCE($8,is_published),
-        max_attempts=$9
-       WHERE id=$10 RETURNING *`,
+        max_attempts=$9, theory_id=$10
+       WHERE id=$11 RETURNING *`,
         [
           title?.trim(),
           description?.trim() || null,
@@ -214,6 +225,7 @@ router.put(
           grade_satisf,
           is_published,
           max_attempts || null,
+          theory_id || null,
           testId,
         ],
       );
@@ -535,8 +547,12 @@ router.get("/sessions/:sessionId/result", authenticate, async (req, res) => {
   try {
     const sessionId = parseInt(req.params.sessionId);
     const sessionResult = await pool.query(
-      `SELECT ts.*, t.title as test_title, t.grade_excellent, t.grade_good, t.grade_satisf
-       FROM test_sessions ts JOIN tests t ON ts.test_id = t.id WHERE ts.id=$1`,
+      `SELECT ts.*, t.title as test_title, t.grade_excellent, t.grade_good, t.grade_satisf,
+              t.theory_id, tm.title as theory_title
+       FROM test_sessions ts
+       JOIN tests t ON ts.test_id = t.id
+       LEFT JOIN theory_materials tm ON t.theory_id = tm.id
+       WHERE ts.id=$1`,
       [sessionId],
     );
     if (sessionResult.rows.length === 0)

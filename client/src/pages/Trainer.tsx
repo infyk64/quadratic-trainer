@@ -225,7 +225,7 @@ export function Trainer() {
             color: inputMode === "keyboard" ? "#6366f1" : "#666",
           }}
         >
-          ⌨️ С клавиатуры
+          С клавиатуры
         </button>
       </div>
 

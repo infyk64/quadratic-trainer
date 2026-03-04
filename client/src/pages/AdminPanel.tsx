@@ -143,14 +143,7 @@ export function AdminPanel() {
                 <td style={{ padding: "12px" }}>
                   <button
                     onClick={() => deleteUser(user.id)}
-                    style={{
-                      padding: "6px 12px",
-                      background: "var(--red)",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
+                    className="btn-danger"
                   >
                     Удалить
                   </button>
