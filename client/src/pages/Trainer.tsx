@@ -281,7 +281,7 @@ export function Trainer() {
               <div
                 style={{ fontSize: "13px", color: "#888", marginTop: "8px" }}
               >
-               {theoryQuestion.hint}
+                {theoryQuestion.hint}
               </div>
             )}
           </div>

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { api } from '../api/client';
+import { useState, useEffect } from "react";
+import { api } from "../api/client";
 
 interface StatsData {
   total: number;
@@ -10,13 +10,14 @@ interface StatsData {
 
 export function Stats() {
   const [stats, setStats] = useState<StatsData | null>(null);
-  const userId = localStorage.getItem('userId');
+  const userId = localStorage.getItem("userId");
 
   useEffect(() => {
     if (userId) {
-      api.get(`/users/${userId}/stats`)
+      api
+        .get(`/users/${userId}/stats`)
         .then(({ data }) => setStats(data))
-        .catch(err => console.error('Ошибка загрузки статистики:', err));
+        .catch((err) => console.error("Ошибка загрузки статистики:", err));
     }
   }, [userId]);
 

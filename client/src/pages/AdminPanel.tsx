@@ -7,6 +7,7 @@ export function AdminPanel() {
   const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState<User["role"]>("student");
 
   useEffect(() => {
@@ -24,13 +25,19 @@ export function AdminPanel() {
 
   const createUser = async () => {
     if (!newUsername.trim()) return;
+    if (!newPassword || newPassword.length < 4) {
+      alert("Пароль должен быть не менее 4 символов");
+      return;
+    }
 
     try {
       await api.post("/users/create", {
         username: newUsername.trim(),
+        password: newPassword,
         role: newRole,
       });
       setNewUsername("");
+      setNewPassword("");
       setNewRole("student");
       loadUsers();
       alert("Пользователь успешно создан!");
@@ -62,9 +69,9 @@ export function AdminPanel() {
         <h2>Управление группами</h2>
         <p>Создавайте группы и назначайте преподавателей</p>
         <button
-          onClick={() => navigate('/admin/groups')}
+          onClick={() => navigate("/admin/groups")}
           className="btn-primary"
-          style={{ marginTop: '12px' }}
+          style={{ marginTop: "12px" }}
         >
           Управление группами
         </button>
@@ -72,13 +79,37 @@ export function AdminPanel() {
 
       <div className="section-card">
         <h2>Создать нового пользователя</h2>
-        <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "10px",
+            marginTop: "20px",
+            flexWrap: "wrap",
+          }}
+        >
           <input
             type="text"
             placeholder="Имя пользователя"
             value={newUsername}
             onChange={(e) => setNewUsername(e.target.value)}
-            style={{ flex: 1, padding: "10px", fontSize: "16px" }}
+            style={{
+              flex: 1,
+              padding: "10px",
+              fontSize: "16px",
+              minWidth: "150px",
+            }}
+          />
+          <input
+            type="password"
+            placeholder="Пароль (мин. 4 символа)"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            style={{
+              flex: 1,
+              padding: "10px",
+              fontSize: "16px",
+              minWidth: "150px",
+            }}
           />
           <select
             value={newRole}
@@ -92,7 +123,9 @@ export function AdminPanel() {
           <button
             onClick={createUser}
             className="btn-primary"
-            disabled={!newUsername.trim()}
+            disabled={
+              !newUsername.trim() || !newPassword || newPassword.length < 4
+            }
           >
             Создать
           </button>

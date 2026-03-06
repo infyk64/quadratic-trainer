@@ -35,7 +35,9 @@ export function StudentTests() {
 
   const loadTests = async () => {
     try {
-      const { data } = await api.get<AvailableTest[]>("/tests/student/available");
+      const { data } = await api.get<AvailableTest[]>(
+        "/tests/student/available",
+      );
       setTests(data);
     } catch (err) {
       console.error("Ошибка загрузки тестов:", err);
@@ -62,19 +64,36 @@ export function StudentTests() {
 
   const getStatusBadge = (test: AvailableTest) => {
     if (!test.session_status) {
-      return { text: "Не начат", color: "var(--surface2)", textColor: "var(--text2)" };
+      return {
+        text: "Не начат",
+        color: "var(--surface2)",
+        textColor: "var(--text2)",
+      };
     }
     switch (test.session_status) {
       case "in_progress":
         return { text: "В процессе", color: "#f59e0b", textColor: "white" };
       case "completed":
-        return { text: `Оценка: ${test.grade}`, color: test.grade! >= 4 ? "#22c55e" : test.grade! >= 3 ? "#f59e0b" : "#ef4444", textColor: "white" };
+        return {
+          text: `Оценка: ${test.grade}`,
+          color:
+            test.grade! >= 4
+              ? "#22c55e"
+              : test.grade! >= 3
+                ? "#f59e0b"
+                : "#ef4444",
+          textColor: "white",
+        };
       case "failed_time":
         return { text: "Время вышло", color: "#ef4444", textColor: "white" };
       case "failed_errors":
         return { text: "Лимит ошибок", color: "#ef4444", textColor: "white" };
       default:
-        return { text: test.session_status, color: "var(--surface2)", textColor: "var(--text2)" };
+        return {
+          text: test.session_status,
+          color: "var(--surface2)",
+          textColor: "var(--text2)",
+        };
     }
   };
 
@@ -85,7 +104,9 @@ export function StudentTests() {
 
   if (loading) {
     return (
-      <div style={{ padding: "40px", textAlign: "center", color: "var(--text2)" }}>
+      <div
+        style={{ padding: "40px", textAlign: "center", color: "var(--text2)" }}
+      >
         Загрузка тестов...
       </div>
     );
@@ -97,7 +118,13 @@ export function StudentTests() {
 
       {tests.length === 0 ? (
         <div className="section-card">
-          <p style={{ color: "var(--text2)", textAlign: "center", padding: "40px" }}>
+          <p
+            style={{
+              color: "var(--text2)",
+              textAlign: "center",
+              padding: "40px",
+            }}
+          >
             Вам пока не назначено ни одного теста
           </p>
         </div>
@@ -108,14 +135,35 @@ export function StudentTests() {
             const deadlinePassed = isDeadlinePassed(test.deadline);
             const canStart = !test.session_status && !deadlinePassed;
             const canContinue = test.session_status === "in_progress";
-            const isDone = ["completed", "failed_time", "failed_errors"].includes(test.session_status || "");
+            const isDone = [
+              "completed",
+              "failed_time",
+              "failed_errors",
+            ].includes(test.session_status || "");
 
             return (
-              <div key={test.id} className="section-card" style={{ opacity: deadlinePassed && !isDone ? 0.6 : 1 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+              <div
+                key={test.id}
+                className="section-card"
+                style={{ opacity: deadlinePassed && !isDone ? 0.6 : 1 }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "start",
+                  }}
+                >
                   {/* Информация */}
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                        marginBottom: "8px",
+                      }}
+                    >
                       <h2 style={{ margin: 0 }}>{test.title}</h2>
                       <span
                         style={{
@@ -132,19 +180,42 @@ export function StudentTests() {
                     </div>
 
                     {test.description && (
-                      <p style={{ color: "var(--text2)", fontSize: "14px", margin: "0 0 10px 0" }}>
+                      <p
+                        style={{
+                          color: "var(--text2)",
+                          fontSize: "14px",
+                          margin: "0 0 10px 0",
+                        }}
+                      >
                         {test.description}
                       </p>
                     )}
 
-                    <div style={{ display: "flex", gap: "16px", fontSize: "13px", color: "var(--text2)", flexWrap: "wrap" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "16px",
+                        fontSize: "13px",
+                        color: "var(--text2)",
+                        flexWrap: "wrap",
+                      }}
+                    >
                       <span>{test.questions_count} вопросов</span>
-                      {test.time_limit && <span>⏱ {Math.round(test.time_limit / 60)} мин</span>}
-                      {test.max_errors && <span>❌ макс. {test.max_errors} ошибок</span>}
+                      {test.time_limit && (
+                        <span>⏱ {Math.round(test.time_limit / 60)} мин</span>
+                      )}
+                      {test.max_errors && (
+                        <span>❌ макс. {test.max_errors} ошибок</span>
+                      )}
                       <span>{test.author_name}</span>
                       {test.deadline && (
-                        <span style={{ color: deadlinePassed ? "#ef4444" : "var(--text2)" }}>
-                          Дедлайн: {new Date(test.deadline).toLocaleDateString()}
+                        <span
+                          style={{
+                            color: deadlinePassed ? "#ef4444" : "var(--text2)",
+                          }}
+                        >
+                          Дедлайн:{" "}
+                          {new Date(test.deadline).toLocaleDateString()}
                           {deadlinePassed && " (просрочен)"}
                         </span>
                       )}
@@ -171,7 +242,15 @@ export function StudentTests() {
                     )}
 
                     {/* Шкала оценивания */}
-                    <div style={{ display: "flex", gap: "12px", fontSize: "12px", color: "var(--text2)", marginTop: "6px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "12px",
+                        fontSize: "12px",
+                        color: "var(--text2)",
+                        marginTop: "6px",
+                      }}
+                    >
                       <span>«5» от {test.grade_excellent}%</span>
                       <span>«4» от {test.grade_good}%</span>
                       <span>«3» от {test.grade_satisf}%</span>
@@ -179,8 +258,17 @@ export function StudentTests() {
 
                     {/* Результат */}
                     {isDone && test.score_percent !== undefined && (
-                      <div style={{ marginTop: "10px", padding: "8px 12px", background: "var(--surface2)", borderRadius: "6px", fontSize: "14px" }}>
-                        Результат: <strong>{test.score_percent}%</strong> — оценка <strong>{test.grade}</strong>
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          padding: "8px 12px",
+                          background: "var(--surface2)",
+                          borderRadius: "6px",
+                          fontSize: "14px",
+                        }}
+                      >
+                        Результат: <strong>{test.score_percent}%</strong> —
+                        оценка <strong>{test.grade}</strong>
                       </div>
                     )}
                   </div>
@@ -198,16 +286,26 @@ export function StudentTests() {
                     )}
                     {canContinue && (
                       <button
-                        onClick={() => navigate(`/student/test-run/${test.session_id}`, { state: { testId: test.id } })}
+                        onClick={() =>
+                          navigate(`/student/test-run/${test.session_id}`, {
+                            state: { testId: test.id },
+                          })
+                        }
                         className="btn-primary"
-                        style={{ padding: "10px 24px", width: "auto", background: "#f59e0b" }}
+                        style={{
+                          padding: "10px 24px",
+                          width: "auto",
+                          background: "#f59e0b",
+                        }}
                       >
                         ▶ Продолжить
                       </button>
                     )}
                     {isDone && test.session_id && (
                       <button
-                        onClick={() => navigate(`/student/test-result/${test.session_id}`)}
+                        onClick={() =>
+                          navigate(`/student/test-result/${test.session_id}`)
+                        }
                         style={{
                           padding: "10px 24px",
                           background: "var(--accent2)",
@@ -222,7 +320,9 @@ export function StudentTests() {
                       </button>
                     )}
                     {deadlinePassed && !isDone && !canContinue && (
-                      <span style={{ color: "#ef4444", fontSize: "13px" }}>Просрочен</span>
+                      <span style={{ color: "#ef4444", fontSize: "13px" }}>
+                        Просрочен
+                      </span>
                     )}
                   </div>
                 </div>

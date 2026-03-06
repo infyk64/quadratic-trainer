@@ -5,6 +5,37 @@ import { checkAnswer, checkEquationAnswer } from "../services/answerChecker";
 
 const router = Router();
 
+// Генерация уравнения с заданным диапазоном коэффициентов
+function generateEquation(min: number, max: number, eqType: string) {
+  const randInt = (lo: number, hi: number) => Math.floor(Math.random() * (hi - lo + 1)) + lo;
+  const randNonZero = (lo: number, hi: number) => {
+    let n = 0;
+    while (n === 0) n = randInt(lo, hi);
+    return n;
+  };
+  const round = (n: number) => Math.round(n * 100) / 100;
+
+  const type = eqType === 'random' ? (Math.random() > 0.5 ? 'full' : 'incomplete') : eqType;
+
+  const a = randNonZero(min, max);
+  const b = type === 'full' ? randInt(min, max) : 0;
+  const c = randNonZero(min, max);
+
+  const D = b * b - 4 * a * c;
+  let mask: string;
+  if (D < 0) {
+    mask = "нет корней";
+  } else if (D === 0) {
+    mask = String(round(-b / (2 * a)));
+  } else {
+    const x1 = round((-b + Math.sqrt(D)) / (2 * a));
+    const x2 = round((-b - Math.sqrt(D)) / (2 * a));
+    mask = [x1, x2].sort((a, b) => a - b).join(", ");
+  }
+
+  return { a, b, c, mask };
+}
+
 router.get(
   "/",
   authenticate,
@@ -94,10 +125,17 @@ router.get("/:id", authenticate, async (req, res) => {
       `SELECT ta.*, g.name as group_name FROM test_assignments ta JOIN groups g ON ta.group_id = g.id WHERE ta.test_id = $1`,
       [testId],
     );
+
+    const generatorsResult = await pool.query(
+      "SELECT * FROM test_generators WHERE test_id = $1 ORDER BY id",
+      [testId],
+    );
+
     res.json({
       ...testResult.rows[0],
       questions,
       assignments: assignmentsResult.rows,
+      generators: generatorsResult.rows,
     });
   } catch (err) {
     console.error("Ошибка получения теста:", err);
@@ -124,11 +162,12 @@ router.post(
         grade_satisf,
         theory_id,
         questions,
+        generators,
       } = req.body;
       if (!title?.trim())
         return res.status(400).json({ error: "Введите название" });
-      if (!questions || questions.length === 0)
-        return res.status(400).json({ error: "Добавьте вопросы" });
+      if ((!questions || questions.length === 0) && (!generators || generators.length === 0))
+        return res.status(400).json({ error: "Добавьте вопросы или настройте автогенерацию" });
 
       const testResult = await client.query(
         `INSERT INTO tests (title, description, created_by, time_limit, max_errors,
@@ -149,33 +188,49 @@ router.post(
       );
       const test = testResult.rows[0];
 
-      for (let i = 0; i < questions.length; i++) {
-        const q = questions[i];
-        await client.query(
-          `INSERT INTO test_questions (test_id, question_type, eq_a, eq_b, eq_c, question_text,
-          answer_mask, answer_type, hint, sort_order, points, options)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-          [
-            test.id,
-            q.question_type,
-            q.eq_a || null,
-            q.eq_b || null,
-            q.eq_c || null,
-            q.question_text || null,
-            q.answer_mask,
-            q.question_type === "multi_choice"
-              ? "multi_choice"
-              : q.answer_type || "exact",
-            q.hint || null,
-            i,
-            q.points || 1,
-            q.options ? JSON.stringify(q.options) : null,
-          ],
-        );
+      // Сохраняем ручные вопросы
+      if (questions && questions.length > 0) {
+        for (let i = 0; i < questions.length; i++) {
+          const q = questions[i];
+          await client.query(
+            `INSERT INTO test_questions (test_id, question_type, eq_a, eq_b, eq_c, question_text,
+            answer_mask, answer_type, hint, sort_order, points, options)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+            [
+              test.id,
+              q.question_type,
+              q.eq_a || null,
+              q.eq_b || null,
+              q.eq_c || null,
+              q.question_text || null,
+              q.answer_mask,
+              q.question_type === "multi_choice"
+                ? "multi_choice"
+                : q.answer_type || "exact",
+              q.hint || null,
+              i,
+              q.points || 1,
+              q.options ? JSON.stringify(q.options) : null,
+            ],
+          );
+        }
       }
 
+      // Сохраняем генераторы
+      if (generators && generators.length > 0) {
+        for (const gen of generators) {
+          await client.query(
+            `INSERT INTO test_generators (test_id, count, coeff_min, coeff_max, eq_type, points_each)
+             VALUES ($1,$2,$3,$4,$5,$6)`,
+            [test.id, gen.count, gen.coeff_min, gen.coeff_max, gen.eq_type || 'full', gen.points_each || 1],
+          );
+        }
+      }
+
+      const totalQuestions = (questions?.length || 0) + (generators?.reduce((s: number, g: any) => s + g.count, 0) || 0);
+
       await client.query("COMMIT");
-      res.json({ ...test, questions_count: questions.length });
+      res.json({ ...test, questions_count: totalQuestions });
     } catch (err) {
       await client.query("ROLLBACK");
       console.error("Ошибка создания:", err);
@@ -403,15 +458,44 @@ router.post("/:id/start", authenticate, async (req, res) => {
       }
     }
 
+    // Считаем ручные вопросы
     const qCount = await pool.query(
       "SELECT COUNT(*) FROM test_questions WHERE test_id=$1",
       [testId],
     );
-    const result = await pool.query(
-      "INSERT INTO test_sessions (test_id, student_id, total_questions) VALUES ($1,$2,$3) RETURNING *",
-      [testId, studentId, parseInt(qCount.rows[0].count)],
+    const manualCount = parseInt(qCount.rows[0].count);
+
+    // Считаем генераторы
+    const generators = await pool.query(
+      "SELECT * FROM test_generators WHERE test_id=$1",
+      [testId],
     );
-    res.json(result.rows[0]);
+    const generatedCount = generators.rows.reduce((s: number, g: any) => s + g.count, 0);
+    const totalQuestions = manualCount + generatedCount;
+
+    // Создаём сессию
+    const sessionResult = await pool.query(
+      "INSERT INTO test_sessions (test_id, student_id, total_questions) VALUES ($1,$2,$3) RETURNING *",
+      [testId, studentId, totalQuestions],
+    );
+    const session = sessionResult.rows[0];
+
+    // Генерируем уникальные уравнения для этой сессии
+    if (generators.rows.length > 0) {
+      let sortOrder = manualCount; // продолжаем нумерацию после ручных
+      for (const gen of generators.rows) {
+        for (let i = 0; i < gen.count; i++) {
+          const { a, b, c, mask } = generateEquation(gen.coeff_min, gen.coeff_max, gen.eq_type);
+          await pool.query(
+            `INSERT INTO session_questions (session_id, generator_id, eq_a, eq_b, eq_c, answer_mask, points, sort_order)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [session.id, gen.id, a, b, c, mask, gen.points_each, sortOrder++],
+          );
+        }
+      }
+    }
+
+    res.json(session);
   } catch (err) {
     console.error("Ошибка начала теста:", err);
     res.status(500).json({ error: "Не удалось начать тест" });
@@ -596,5 +680,105 @@ async function finishSession(sessionId: number, status: string) {
   );
   return result.rows[0];
 }
+
+// Получить сгенерированные вопросы для сессии
+router.get("/sessions/:sessionId/generated-questions", authenticate, async (req, res) => {
+  try {
+    const sessionId = parseInt(req.params.sessionId);
+    const result = await pool.query(
+      `SELECT id, eq_a, eq_b, eq_c, points, sort_order
+       FROM session_questions WHERE session_id = $1 ORDER BY sort_order`,
+      [sessionId],
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Ошибка:", err);
+    res.status(500).json({ error: "Не удалось получить вопросы" });
+  }
+});
+
+// Ответить на сгенерированный вопрос
+router.post("/sessions/:sessionId/answer-generated", authenticate, async (req, res) => {
+  try {
+    const sessionId = parseInt(req.params.sessionId);
+    const { question_id, student_answer } = req.body;
+
+    // Проверяем сессию
+    const sessionResult = await pool.query(
+      "SELECT * FROM test_sessions WHERE id=$1 AND student_id=$2",
+      [sessionId, req.user!.userId],
+    );
+    if (sessionResult.rows.length === 0)
+      return res.status(404).json({ error: "Сессия не найдена" });
+    const session = sessionResult.rows[0];
+    if (session.status !== "in_progress")
+      return res.status(400).json({ error: "Тест уже завершён" });
+
+    // Проверяем время
+    const testResult = await pool.query(
+      "SELECT time_limit, max_errors FROM tests WHERE id=$1",
+      [session.test_id],
+    );
+    const test = testResult.rows[0];
+    if (test.time_limit) {
+      const elapsed = (Date.now() - new Date(session.started_at).getTime()) / 1000;
+      if (elapsed > test.time_limit) {
+        await finishSession(sessionId, "failed_time");
+        return res.status(400).json({ error: "Время вышло", status: "failed_time" });
+      }
+    }
+
+    // Получаем сгенерированный вопрос
+    const sqResult = await pool.query(
+      "SELECT * FROM session_questions WHERE id=$1 AND session_id=$2",
+      [question_id, sessionId],
+    );
+    if (sqResult.rows.length === 0)
+      return res.status(404).json({ error: "Вопрос не найден" });
+    const sq = sqResult.rows[0];
+
+    // Проверяем ответ через checkEquationAnswer
+    const checkResult = checkEquationAnswer(sq.eq_a, sq.eq_b, sq.eq_c, student_answer);
+
+    // Сохраняем ответ в session_questions
+    await pool.query(
+      "UPDATE session_questions SET student_answer=$1, is_correct=$2, answered_at=NOW() WHERE id=$3",
+      [student_answer, checkResult.isCorrect, question_id],
+    );
+
+    // Обновляем счётчики сессии
+    if (checkResult.isCorrect) {
+      await pool.query(
+        "UPDATE test_sessions SET correct_answers = correct_answers + 1 WHERE id=$1",
+        [sessionId],
+      );
+    } else {
+      await pool.query(
+        "UPDATE test_sessions SET errors_count = errors_count + 1 WHERE id=$1",
+        [sessionId],
+      );
+
+      if (test.max_errors) {
+        const updated = await pool.query(
+          "SELECT errors_count FROM test_sessions WHERE id=$1",
+          [sessionId],
+        );
+        if (updated.rows[0].errors_count >= test.max_errors) {
+          await finishSession(sessionId, "failed_errors");
+          return res.json({
+            ...checkResult,
+            status: "failed_errors",
+            message: "Превышен лимит ошибок",
+          });
+        }
+      }
+    }
+
+    res.json(checkResult);
+  } catch (err) {
+    console.error("Ошибка ответа:", err);
+    res.status(500).json({ error: "Не удалось сохранить ответ" });
+  }
+});
 
 export default router;

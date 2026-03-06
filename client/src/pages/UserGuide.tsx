@@ -8,7 +8,11 @@ export function UserGuide() {
 
   const tabs: { key: Tab; label: string; visible: boolean }[] = [
     { key: "student", label: "Для студента", visible: true },
-    { key: "teacher", label: "Для преподавателя", visible: role === "teacher" || role === "admin" },
+    {
+      key: "teacher",
+      label: "Для преподавателя",
+      visible: role === "teacher" || role === "admin",
+    },
     { key: "admin", label: "Для администратора", visible: role === "admin" },
   ];
 
@@ -27,8 +31,12 @@ export function UserGuide() {
               style={{
                 padding: "10px 20px",
                 borderRadius: "8px",
-                border: activeTab === tab.key ? "2px solid var(--accent)" : "1px solid var(--border)",
-                background: activeTab === tab.key ? "var(--accent2)" : "var(--surface)",
+                border:
+                  activeTab === tab.key
+                    ? "2px solid var(--accent)"
+                    : "1px solid var(--border)",
+                background:
+                  activeTab === tab.key ? "var(--accent2)" : "var(--surface)",
                 color: activeTab === tab.key ? "white" : "var(--text)",
                 cursor: "pointer",
                 fontSize: "15px",
@@ -194,11 +202,24 @@ function AdminGuide() {
 }
 
 // ===== Компонент секции =====
-function GuideSection({ title, content }: { title: string; content: string[] }) {
+function GuideSection({
+  title,
+  content,
+}: {
+  title: string;
+  content: string[];
+}) {
   return (
     <div className="section-card">
       <h2>{title}</h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "12px" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          marginTop: "12px",
+        }}
+      >
         {content.map((line, i) => (
           <p
             key={i}

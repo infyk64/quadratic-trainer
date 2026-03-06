@@ -2,6 +2,8 @@ import { Router } from "express";
 import { pool } from "../db/pool";
 import { authenticate, authorize } from "../middleware/authMiddleware";
 
+import { linearRegression, classifyStudent } from "../services/analyticsService";
+
 const router = Router();
 
 // ===========================================
@@ -243,6 +245,163 @@ router.get("/group/:groupId/test/:testId", authenticate, authorize("admin", "tea
   } catch (err) {
     console.error("Ошибка статистики группы за тест:", err);
     res.status(500).json({ error: "Не удалось получить статистику" });
+  }
+});
+
+// ===========================================
+// GET /api/stats/analytics/student/:studentId
+// Регрессия + классификация для конкретного студента
+// ===========================================
+router.get("/analytics/student/:studentId", authenticate, authorize("admin", "teacher"), async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+
+    // Все завершённые сессии студента (хронологически)
+    const sessionsResult = await pool.query(
+      `SELECT ts.score_percent, ts.grade, ts.correct_answers, ts.errors_count,
+              ts.total_questions, ts.started_at, ts.finished_at, ts.status,
+              t.time_limit, t.title as test_title
+       FROM test_sessions ts
+       JOIN tests t ON ts.test_id = t.id
+       WHERE ts.student_id = $1 AND ts.status != 'in_progress'
+       ORDER BY ts.finished_at ASC`,
+      [studentId]
+    );
+
+    const sessions = sessionsResult.rows;
+    const scores = sessions.map((s: any) => parseFloat(s.score_percent) || 0);
+
+    // 1. Линейная регрессия
+    const regression = linearRegression(scores);
+
+    // 2. Фичи для классификации
+    const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+    const totalErrors = sessions.reduce((s: number, r: any) => s + (parseInt(r.errors_count) || 0), 0);
+    const totalQuestions = sessions.reduce((s: number, r: any) => s + (parseInt(r.total_questions) || 0), 0);
+    const errorRate = totalQuestions > 0 ? (totalErrors / totalQuestions) * 100 : 50;
+
+    // Среднее отношение времени к лимиту
+    let avgTimeRatio = 0.7;
+    const timedSessions = sessions.filter((s: any) => s.time_limit && s.finished_at && s.started_at);
+    if (timedSessions.length > 0) {
+      const ratios = timedSessions.map((s: any) => {
+        const elapsed = (new Date(s.finished_at).getTime() - new Date(s.started_at).getTime()) / 1000;
+        return elapsed / s.time_limit;
+      });
+      avgTimeRatio = ratios.reduce((a: number, b: number) => a + b, 0) / ratios.length;
+    }
+
+    const classification = classifyStudent({
+      avg_score: Math.round(avgScore * 10) / 10,
+      tests_passed: sessions.length,
+      error_rate: Math.round(errorRate * 10) / 10,
+      avg_time_ratio: Math.round(avgTimeRatio * 100) / 100,
+      trend_slope: regression?.slope || 0,
+    });
+
+    // Информация о студенте
+    const userResult = await pool.query(
+      "SELECT id, username FROM users WHERE id = $1",
+      [studentId]
+    );
+
+    res.json({
+      student: userResult.rows[0],
+      sessions_count: sessions.length,
+      regression,
+      classification,
+    });
+  } catch (err) {
+    console.error("Ошибка аналитики студента:", err);
+    res.status(500).json({ error: "Не удалось получить аналитику" });
+  }
+});
+
+// ===========================================
+// GET /api/stats/analytics/group/:groupId
+// Аналитика по всей группе — классификация каждого студента
+// ===========================================
+router.get("/analytics/group/:groupId", authenticate, authorize("admin", "teacher"), async (req, res) => {
+  try {
+    const groupId = parseInt(req.params.groupId);
+
+    // Все студенты группы
+    const membersResult = await pool.query(
+      `SELECT u.id, u.username
+       FROM group_members gm JOIN users u ON gm.student_id = u.id
+       WHERE gm.group_id = $1
+       ORDER BY u.username`,
+      [groupId]
+    );
+
+    const students = [];
+    for (const member of membersResult.rows) {
+      const sessionsResult = await pool.query(
+        `SELECT ts.score_percent, ts.errors_count, ts.total_questions,
+                ts.started_at, ts.finished_at, ts.status, t.time_limit
+         FROM test_sessions ts JOIN tests t ON ts.test_id = t.id
+         WHERE ts.student_id = $1 AND ts.status != 'in_progress'
+         ORDER BY ts.finished_at ASC`,
+        [member.id]
+      );
+
+      const sessions = sessionsResult.rows;
+      const scores = sessions.map((s: any) => parseFloat(s.score_percent) || 0);
+      const regression = linearRegression(scores);
+
+      const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+      const totalErrors = sessions.reduce((s: number, r: any) => s + (parseInt(r.errors_count) || 0), 0);
+      const totalQuestions = sessions.reduce((s: number, r: any) => s + (parseInt(r.total_questions) || 0), 0);
+      const errorRate = totalQuestions > 0 ? (totalErrors / totalQuestions) * 100 : 50;
+
+      let avgTimeRatio = 0.7;
+      const timedSessions = sessions.filter((s: any) => s.time_limit && s.finished_at && s.started_at);
+      if (timedSessions.length > 0) {
+        const ratios = timedSessions.map((s: any) => {
+          const elapsed = (new Date(s.finished_at).getTime() - new Date(s.started_at).getTime()) / 1000;
+          return elapsed / s.time_limit;
+        });
+        avgTimeRatio = ratios.reduce((a: number, b: number) => a + b, 0) / ratios.length;
+      }
+
+      const classification = classifyStudent({
+        avg_score: Math.round(avgScore * 10) / 10,
+        tests_passed: sessions.length,
+        error_rate: Math.round(errorRate * 10) / 10,
+        avg_time_ratio: Math.round(avgTimeRatio * 100) / 100,
+        trend_slope: regression?.slope || 0,
+      });
+
+      students.push({
+        id: member.id,
+        username: member.username,
+        sessions_count: sessions.length,
+        avg_score: Math.round(avgScore * 10) / 10,
+        classification,
+        regression: regression ? { slope: regression.slope, trend: regression.trend, prediction_next: regression.prediction_next } : null,
+      });
+    }
+
+    // Сводка по группе
+    const categoryCounts = { excellent: 0, good: 0, average: 0, at_risk: 0 };
+    for (const s of students) {
+      categoryCounts[s.classification.category]++;
+    }
+
+    // Информация о группе
+    const groupResult = await pool.query(
+      "SELECT g.name, u.username as teacher_name FROM groups g LEFT JOIN users u ON g.teacher_id = u.id WHERE g.id = $1",
+      [groupId]
+    );
+
+    res.json({
+      group: groupResult.rows[0],
+      students,
+      summary: categoryCounts,
+    });
+  } catch (err) {
+    console.error("Ошибка аналитики группы:", err);
+    res.status(500).json({ error: "Не удалось получить аналитику" });
   }
 });
 

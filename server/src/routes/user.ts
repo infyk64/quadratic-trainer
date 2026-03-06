@@ -1,83 +1,37 @@
 import { Router } from "express";
 import { pool } from "../db/pool";
+import bcrypt from "bcryptjs";
 
 const router = Router();
 
-// Вход/регистрация пользователя
-router.post("/login", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-
-    // Хардкод пароли
-    const adminPassword = "admin123";
-    const teacherPassword = "teacher123";
-
-    // Проверяем есть ли пользователь в БД
-    let result = await pool.query(
-      "SELECT id, username, role FROM users WHERE username = $1",
-      [username],
-    );
-
-    let user;
-    let role = "student";
-
-    if (result.rows.length === 0) {
-      // Создаём нового студента
-      result = await pool.query(
-        "INSERT INTO users (username, role) VALUES ($1, $2) RETURNING id, username, role",
-        [username, "student"],
-      );
-      user = result.rows[0];
-    } else {
-      user = result.rows[0];
-      role = user.role || "student";
-    }
-
-    // Проверяем пароли для админа и преподавателя
-    if (role === "admin" && password !== adminPassword) {
-      return res
-        .status(401)
-        .json({ error: "Неверный пароль для администратора" });
-    }
-
-    if (role === "teacher" && password !== teacherPassword) {
-      return res
-        .status(401)
-        .json({ error: "Неверный пароль для преподавателя" });
-    }
-
-    res.json({
-      id: user.id,
-      username: user.username,
-      role: role,
-    });
-  } catch (err) {
-    console.error("Ошибка входа:", err);
-    res.status(500).json({ error: "Не удалось войти" });
-  }
-});
-
-// Создать/войти
+// Создать нового пользователя (админ задаёт пароль)
 router.post("/create", async (req, res) => {
   try {
-    const { username, role } = req.body;
+    const { username, role, password } = req.body;
+
+    if (!username?.trim()) {
+      return res.status(400).json({ error: "Введите имя пользователя" });
+    }
+    if (!password || password.length < 4) {
+      return res.status(400).json({ error: "Пароль должен быть не менее 4 символов" });
+    }
 
     // Проверяем существует ли уже
     const existing = await pool.query(
       "SELECT id FROM users WHERE username = $1",
-      [username],
+      [username.trim()],
     );
-
     if (existing.rows.length > 0) {
-      return res
-        .status(400)
-        .json({ error: "Пользователь с таким именем уже существует" });
+      return res.status(400).json({ error: "Пользователь с таким именем уже существует" });
     }
 
-    // Создаём нового с ролью
+    // Хэшируем пароль
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+
     const result = await pool.query(
-      "INSERT INTO users (username, role) VALUES ($1, $2) RETURNING id, username, role",
-      [username, role],
+      "INSERT INTO users (username, role, password_hash) VALUES ($1, $2, $3) RETURNING id, username, role, created_at",
+      [username.trim(), role || "student", passwordHash],
     );
 
     res.json(result.rows[0]);
@@ -121,7 +75,6 @@ router.get("/all", async (req, res) => {
     const result = await pool.query(
       "SELECT id, username, role, created_at FROM users ORDER BY created_at DESC"
     );
-    
     res.json(result.rows);
   } catch (err) {
     console.error("Ошибка получения пользователей:", err);
@@ -129,20 +82,16 @@ router.get("/all", async (req, res) => {
   }
 });
 
-// Создать нового пользователя (только админ)
-router.post("/create", async (req, res) => {
+// Получить только студентов
+router.get("/students", async (req, res) => {
   try {
-    const { username, role } = req.body;
-
     const result = await pool.query(
-      "INSERT INTO users (username) VALUES ($1) RETURNING id, username",
-      [username],
+      "SELECT id, username FROM users WHERE role = 'student' ORDER BY username"
     );
-
-    res.json({ ...result.rows[0], role });
+    res.json(result.rows);
   } catch (err) {
-    console.error("Ошибка создания пользователя:", err);
-    res.status(500).json({ error: "Не удалось создать пользователя" });
+    console.error("Ошибка:", err);
+    res.status(500).json({ error: "Не удалось получить студентов" });
   }
 });
 
@@ -150,13 +99,12 @@ router.post("/create", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const userId = parseInt(req.params.id);
-
     await pool.query("DELETE FROM users WHERE id = $1", [userId]);
-
     res.json({ success: true });
   } catch (err) {
     console.error("Ошибка удаления пользователя:", err);
     res.status(500).json({ error: "Не удалось удалить пользователя" });
   }
 });
+
 export default router;

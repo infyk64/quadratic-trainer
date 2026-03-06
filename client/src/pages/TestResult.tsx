@@ -287,18 +287,39 @@ export function TestResult() {
 
       {/* Ссылка на теоретический материал */}
       {session.theory_title && (
-        <div className="section-card" style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          background: session.grade <= 3 ? "#fef3c720" : "var(--surface)",
-          border: session.grade <= 3 ? "1px solid #f59e0b40" : "1px solid var(--border)",
-        }}>
+        <div
+          className="section-card"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: session.grade <= 3 ? "#fef3c720" : "var(--surface)",
+            border:
+              session.grade <= 3
+                ? "1px solid #f59e0b40"
+                : "1px solid var(--border)",
+          }}
+        >
           <div>
-            <div style={{ fontSize: "14px", fontWeight: 600, color: "var(--text)" }}>
+            <div
+              style={{
+                fontSize: "14px",
+                fontWeight: 600,
+                color: "var(--text)",
+              }}
+            >
               📖 Теоретический материал
             </div>
-            <div style={{ fontSize: "13px", color: "var(--text2)", marginTop: "4px" }}>
+            <div
+              style={{
+                fontSize: "13px",
+                color: "var(--text2)",
+                marginTop: "4px",
+              }}
+            >
               {session.theory_title}
-              {session.grade <= 3 && " — рекомендуем повторить перед пересдачей"}
+              {session.grade <= 3 &&
+                " — рекомендуем повторить перед пересдачей"}
             </div>
           </div>
           <button

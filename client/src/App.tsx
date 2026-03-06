@@ -16,6 +16,7 @@ import { TeacherStats } from "./pages/TeacherStats";
 import { StudentTests } from "./pages/StudentTests";
 import { TestRunner } from "./pages/TestRunner";
 import { TestResult } from "./pages/TestResult";
+import { Analytics } from "./pages/Analytics";
 import { api } from "./api/client";
 import type { User } from "./types";
 import "./App.css";
@@ -188,6 +189,7 @@ function App() {
                 <Route path="/teacher/test-editor" element={<TestEditor />} />
                 <Route path="/teacher/tests" element={<TestList />} />
                 <Route path="/teacher/stats" element={<TeacherStats />} />
+                <Route path="/teacher/analytics" element={<Analytics />} />
               </>
             )}
 
