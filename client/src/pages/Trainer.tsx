@@ -98,7 +98,8 @@ export function Trainer() {
       .map((o) => o.id);
     const isCorrect =
       correctIds.length === selected.length &&
-      correctIds.every((id) => selected.includes(id));
+      correctIds.every((id) => selected.includes(id)) &&
+      selected.every((id) => correctIds.includes(id));
 
     setChecked(true);
     setScore((s) => ({
@@ -225,7 +226,7 @@ export function Trainer() {
             color: inputMode === "keyboard" ? "#6366f1" : "#666",
           }}
         >
-          С клавиатуры
+          ⌨️ С клавиатуры
         </button>
       </div>
 
@@ -281,7 +282,7 @@ export function Trainer() {
               <div
                 style={{ fontSize: "13px", color: "#888", marginTop: "8px" }}
               >
-                {theoryQuestion.hint}
+               {theoryQuestion.hint}
               </div>
             )}
           </div>
@@ -362,21 +363,27 @@ export function Trainer() {
                 <>
                   <div
                     className={`result ${
-                      question.options
-                        .filter((o) => o.isCorrect)
-                        .every((o) => selected.includes(o.id))
-                        ? "result-correct"
-                        : "result-wrong"
+                      (() => {
+                        const correctIds = question.options.filter((o) => o.isCorrect).map((o) => o.id);
+                        return correctIds.length === selected.length &&
+                          correctIds.every((id) => selected.includes(id)) &&
+                          selected.every((id) => correctIds.includes(id))
+                          ? "result-correct" : "result-wrong";
+                      })()
                     }`}
                   >
-                    {question.options
-                      .filter((o) => o.isCorrect)
-                      .every((o) => selected.includes(o.id))
-                      ? "Верно!"
-                      : `Неверно. Правильный ответ: ${question.options
-                          .filter((o) => o.isCorrect)
-                          .map((o) => o.label)
-                          .join(", ")}`}
+                    {(() => {
+                      const correctIds = question.options.filter((o) => o.isCorrect).map((o) => o.id);
+                      const isCorrect = correctIds.length === selected.length &&
+                        correctIds.every((id) => selected.includes(id)) &&
+                        selected.every((id) => correctIds.includes(id));
+                      return isCorrect
+                        ? "Верно!"
+                        : `Неверно. Правильный ответ: ${question.options
+                            .filter((o) => o.isCorrect)
+                            .map((o) => o.label)
+                            .join(", ")}`;
+                    })()}
                   </div>
                   <Solution
                     a={question.equation.a}
