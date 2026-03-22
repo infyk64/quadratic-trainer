@@ -82,7 +82,7 @@ quadratic-trainer/
 ### 1. Клонировать репозиторий
 
 ```bash
-git clone <repo-url>
+git clone <https://github.com/infyk64/quadratic-trainer>
 cd quadratic-trainer
 ```
 
