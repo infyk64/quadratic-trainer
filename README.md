@@ -125,19 +125,6 @@ npm run dev
 
 Vite автоматически проксирует запросы `/api/*` на `http://localhost:3001`.
 
-### Сборка для продакшена
-
-```bash
-# Backend
-cd server && npm run build && npm start
-
-# Frontend
-cd client && npm run build
-# собранные файлы окажутся в client/dist/
-```
-
----
-
 ## Тестовые пользователи
 
 После запуска миграций доступны учётные записи (пароли задаются в `migrate.ts`):
