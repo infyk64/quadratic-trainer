@@ -6,19 +6,22 @@ import { checkAnswer, checkEquationAnswer } from "../services/answerChecker";
 const router = Router();
 
 // Генерация уравнения с заданным диапазоном коэффициентов
+// Используем собственную функцию (не equationService) чтобы поддерживать
+// произвольный диапазон коэффициентов из настроек генератора теста
 function generateEquation(min: number, max: number, eqType: string) {
   const randInt = (lo: number, hi: number) => Math.floor(Math.random() * (hi - lo + 1)) + lo;
   const randNonZero = (lo: number, hi: number) => {
+    if (lo > 0 || hi < 0) return randInt(lo, hi); // диапазон не включает 0
     let n = 0;
     while (n === 0) n = randInt(lo, hi);
     return n;
   };
   const round = (n: number) => Math.round(n * 100) / 100;
 
-  const type = eqType === 'random' ? (Math.random() > 0.5 ? 'full' : 'incomplete') : eqType;
+  const type = eqType === "random" ? (Math.random() > 0.5 ? "full" : "incomplete") : eqType;
 
   const a = randNonZero(min, max);
-  const b = type === 'full' ? randInt(min, max) : 0;
+  const b = type === "full" ? randInt(min, max) : 0;
   const c = randNonZero(min, max);
 
   const D = b * b - 4 * a * c;
@@ -69,12 +72,14 @@ router.get(
 router.get("/student/available", authenticate, async (req, res) => {
   try {
     const studentId = req.user!.userId;
+    // DISTINCT ON (t.id) гарантирует одну строку на тест — берём последнюю/активную сессию
     const result = await pool.query(
-      `SELECT DISTINCT t.id, t.title, t.description, t.time_limit, t.max_errors,
+      `SELECT DISTINCT ON (t.id)
+              t.id, t.title, t.description, t.time_limit, t.max_errors,
               t.grade_excellent, t.grade_good, t.grade_satisf, t.max_attempts,
               t.theory_id, t.created_at, u.username as author_name,
               tm.title as theory_title,
-              COUNT(DISTINCT tq.id) as questions_count,
+              (SELECT COUNT(*) FROM test_questions tq WHERE tq.test_id = t.id) as questions_count,
               ta.deadline,
               ts.id as session_id, ts.status as session_status,
               ts.grade, ts.score_percent
@@ -83,11 +88,11 @@ router.get("/student/available", authenticate, async (req, res) => {
        JOIN group_members gm ON ta.group_id = gm.group_id
        LEFT JOIN users u ON t.created_by = u.id
        LEFT JOIN theory_materials tm ON t.theory_id = tm.id
-       LEFT JOIN test_questions tq ON t.id = tq.test_id
        LEFT JOIN test_sessions ts ON t.id = ts.test_id AND ts.student_id = $1
        WHERE gm.student_id = $1 AND t.is_published = true
-       GROUP BY t.id, u.username, tm.title, ta.deadline, ts.id, ts.status, ts.grade, ts.score_percent
-       ORDER BY t.created_at DESC`,
+       ORDER BY t.id,
+                (CASE WHEN ts.status = 'in_progress' THEN 0 ELSE 1 END),
+                ts.started_at DESC NULLS LAST`,
       [studentId],
     );
     res.json(result.rows);
@@ -99,7 +104,7 @@ router.get("/student/available", authenticate, async (req, res) => {
 
 router.get("/:id", authenticate, async (req, res) => {
   try {
-    const testId = parseInt(req.params.id);
+    const testId = parseInt(req.params.id as string);
     const testResult = await pool.query(
       `SELECT t.*, u.username as author_name FROM tests t LEFT JOIN users u ON t.created_by = u.id WHERE t.id = $1`,
       [testId],
@@ -249,7 +254,7 @@ router.put(
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      const testId = parseInt(req.params.id);
+      const testId = parseInt(req.params.id as string);
       const {
         title,
         description,
@@ -337,9 +342,21 @@ router.delete(
   authorize("admin", "teacher"),
   async (req, res) => {
     try {
-      await pool.query("DELETE FROM tests WHERE id = $1", [
-        parseInt(req.params.id),
-      ]);
+      const testId = parseInt(req.params.id as string);
+      const isAdmin = req.user!.role === "admin";
+
+      // Учитель может удалять только свои тесты, админ — любые
+      const result = await pool.query(
+        isAdmin
+          ? "DELETE FROM tests WHERE id = $1 RETURNING id"
+          : "DELETE FROM tests WHERE id = $1 AND created_by = $2 RETURNING id",
+        isAdmin ? [testId] : [testId, req.user!.userId],
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Тест не найден или нет прав на удаление" });
+      }
+
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Ошибка удаления" });
@@ -355,7 +372,7 @@ router.post(
     try {
       const result = await pool.query(
         "UPDATE tests SET is_published = true WHERE id = $1 RETURNING *",
-        [parseInt(req.params.id)],
+        [parseInt(req.params.id as string)],
       );
       if (result.rows.length === 0)
         return res.status(404).json({ error: "Не найден" });
@@ -372,9 +389,23 @@ router.post(
   authorize("admin", "teacher"),
   async (req, res) => {
     try {
-      const testId = parseInt(req.params.id);
+      const testId = parseInt(req.params.id as string);
       const { group_id, deadline } = req.body;
       if (!group_id) return res.status(400).json({ error: "Укажите группу" });
+
+      const isAdmin = req.user!.role === "admin";
+
+      // Учитель может назначать тест только своей группе
+      if (!isAdmin) {
+        const groupCheck = await pool.query(
+          "SELECT id FROM groups WHERE id = $1 AND teacher_id = $2",
+          [group_id, req.user!.userId],
+        );
+        if (groupCheck.rows.length === 0) {
+          return res.status(403).json({ error: "Вы можете назначать тесты только своим группам" });
+        }
+      }
+
       const result = await pool.query(
         "INSERT INTO test_assignments (test_id, group_id, deadline) VALUES ($1,$2,$3) RETURNING *",
         [testId, group_id, deadline || null],
@@ -397,9 +428,24 @@ router.delete(
   authorize("admin", "teacher"),
   async (req, res) => {
     try {
+      const testId = parseInt(req.params.id as string);
+      const groupId = parseInt(req.params.groupId as string);
+      const isAdmin = req.user!.role === "admin";
+
+      // Учитель может снимать назначение только со своей группы
+      if (!isAdmin) {
+        const groupCheck = await pool.query(
+          "SELECT id FROM groups WHERE id = $1 AND teacher_id = $2",
+          [groupId, req.user!.userId],
+        );
+        if (groupCheck.rows.length === 0) {
+          return res.status(403).json({ error: "Вы можете управлять назначениями только своих групп" });
+        }
+      }
+
       await pool.query(
         "DELETE FROM test_assignments WHERE test_id = $1 AND group_id = $2",
-        [parseInt(req.params.id), parseInt(req.params.groupId)],
+        [testId, groupId],
       );
       res.json({ success: true });
     } catch (err) {
@@ -410,7 +456,7 @@ router.delete(
 
 router.post("/:id/start", authenticate, async (req, res) => {
   try {
-    const testId = parseInt(req.params.id);
+    const testId = parseInt(req.params.id as string);
     const studentId = req.user!.userId;
 
     // Проверка дедлайна
@@ -504,7 +550,7 @@ router.post("/:id/start", authenticate, async (req, res) => {
 
 router.post("/sessions/:sessionId/answer", authenticate, async (req, res) => {
   try {
-    const sessionId = parseInt(req.params.sessionId);
+    const sessionId = parseInt(req.params.sessionId as string);
     const { question_id, student_answer } = req.body;
 
     const sessionResult = await pool.query(
@@ -610,7 +656,7 @@ router.post("/sessions/:sessionId/answer", authenticate, async (req, res) => {
 
 router.post("/sessions/:sessionId/finish", authenticate, async (req, res) => {
   try {
-    const sessionId = parseInt(req.params.sessionId);
+    const sessionId = parseInt(req.params.sessionId as string);
     const session = await pool.query(
       "SELECT * FROM test_sessions WHERE id=$1 AND student_id=$2",
       [sessionId, req.user!.userId],
@@ -629,7 +675,7 @@ router.post("/sessions/:sessionId/finish", authenticate, async (req, res) => {
 
 router.get("/sessions/:sessionId/result", authenticate, async (req, res) => {
   try {
-    const sessionId = parseInt(req.params.sessionId);
+    const sessionId = parseInt(req.params.sessionId as string);
     const sessionResult = await pool.query(
       `SELECT ts.*, t.title as test_title, t.grade_excellent, t.grade_good, t.grade_satisf,
               t.theory_id, tm.title as theory_title
@@ -684,7 +730,7 @@ async function finishSession(sessionId: number, status: string) {
 // Получить сгенерированные вопросы для сессии
 router.get("/sessions/:sessionId/generated-questions", authenticate, async (req, res) => {
   try {
-    const sessionId = parseInt(req.params.sessionId);
+    const sessionId = parseInt(req.params.sessionId as string);
     const result = await pool.query(
       `SELECT id, eq_a, eq_b, eq_c, points, sort_order
        FROM session_questions WHERE session_id = $1 ORDER BY sort_order`,
@@ -700,7 +746,7 @@ router.get("/sessions/:sessionId/generated-questions", authenticate, async (req,
 // Ответить на сгенерированный вопрос
 router.post("/sessions/:sessionId/answer-generated", authenticate, async (req, res) => {
   try {
-    const sessionId = parseInt(req.params.sessionId);
+    const sessionId = parseInt(req.params.sessionId as string);
     const { question_id, student_answer } = req.body;
 
     // Проверяем сессию
