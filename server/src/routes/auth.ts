@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "../db/pool";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { logAction } from "../services/auditLogger";
 
 const router = Router();
 
@@ -63,6 +64,16 @@ router.post("/login", async (req, res) => {
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+    await logAction({
+      userId: user.id,
+      username: user.username,
+      userRole: user.role,
+      actionType: "auth.login_success",
+      entityType: "user",
+      entityId: user.id,
+      details: "Успешный вход в систему",
+    });
 
     res.json({
       token,

@@ -22,7 +22,7 @@ export type UserRole = 'admin' | 'teacher' | 'student';
 
 export interface User {
   id: number;
-  name: string;
+  username: string;
   role: UserRole;
   created_at?: string;
 }

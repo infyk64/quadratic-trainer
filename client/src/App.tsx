@@ -17,8 +17,9 @@ import { StudentTests } from "./pages/StudentTests";
 import { TestRunner } from "./pages/TestRunner";
 import { TestResult } from "./pages/TestResult";
 import { Analytics } from "./pages/Analytics";
+import { FeedbackPage } from "./pages/FeedbackPage.tsx";
 import { api } from "./api/client";
-import type { User } from "./types";
+import type { User } from "./types/index";
 import "./App.css";
 
 function App() {
@@ -86,14 +87,16 @@ function App() {
           <div className="nav-left">
             <span className="nav-logo">Квадратные уравнения</span>
             <div className="nav-links">
-              {/* Тренажёр — для всех */}
-              <NavLink
-                to="/"
-                end
-                className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-              >
-                Тренажёр
-              </NavLink>
+              {/* Тренажёр — только для студентов */}
+              {user.role === "student" && (
+                <NavLink
+                  to="/"
+                  end
+                  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+                >
+                  Тренажёр
+                </NavLink>
+              )}
 
               {/* Тесты — только для студентов */}
               {user.role === "student" && (
@@ -105,21 +108,34 @@ function App() {
                 </NavLink>
               )}
 
-              {/* Теоретический материал */}
-              <NavLink
-                to="/theory"
-                className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-              >
-                Теория
-              </NavLink>
+              {/* Теоретический материал — не для админа */}
+              {user.role !== "admin" && (
+                <NavLink
+                  to="/theory"
+                  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+                >
+                  Теория
+                </NavLink>
+              )}
 
-              {/* Статистика */}
-              <NavLink
-                to="/stats"
-                className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-              >
-                Статистика
-              </NavLink>
+              {/* Статистика — только для студентов */}
+              {user.role === "student" && (
+                <NavLink
+                  to="/stats"
+                  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+                >
+                  Статистика
+                </NavLink>
+              )}
+
+              {user.role === "student" && (
+                <NavLink
+                  to="/feedback"
+                  className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+                >
+                  Обратная связь
+                </NavLink>
+              )}
 
               {/* Справочник — руководство пользователя */}
               <NavLink
@@ -167,9 +183,10 @@ function App() {
         <main className="main-content">
           <Routes>
             {/* ===== Общие роуты ===== */}
-            <Route path="/" element={<Trainer />} />
-            <Route path="/theory" element={<TheoryView />} />
-            <Route path="/stats" element={<Stats />} />
+            {user.role === "student" && <Route path="/" element={<Trainer />} />}
+            {user.role !== "admin" && <Route path="/theory" element={<TheoryView />} />}
+            {user.role === "student" && <Route path="/stats" element={<Stats />} />}
+            {user.role === "student" && <Route path="/feedback" element={<FeedbackPage />} />}
             <Route path="/guide" element={<UserGuide />} />
 
             {/* ===== Админ ===== */}

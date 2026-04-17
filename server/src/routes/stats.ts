@@ -1,10 +1,79 @@
 import { Router } from "express";
 import { pool } from "../db/pool";
 import { authenticate, authorize } from "../middleware/authMiddleware";
+import { logAction } from "../services/auditLogger";
 
 import { linearRegression, classifyStudent } from "../services/analyticsService";
 
 const router = Router();
+
+router.get("/export/student-performance", authenticate, authorize("admin"), async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT
+         u.id as student_id,
+         u.username,
+         COUNT(ts.id) FILTER (WHERE ts.status != 'in_progress') as tests_taken,
+         ROUND(AVG(ts.score_percent)::numeric, 2) as avg_score_percent,
+         ROUND(AVG(ts.grade)::numeric, 2) as avg_grade,
+         COUNT(ts.id) FILTER (WHERE ts.grade = 5) as grade_5_count,
+         COUNT(ts.id) FILTER (WHERE ts.grade = 4) as grade_4_count,
+         COUNT(ts.id) FILTER (WHERE ts.grade = 3) as grade_3_count,
+         COUNT(ts.id) FILTER (WHERE ts.grade = 2) as grade_2_count
+       FROM users u
+       LEFT JOIN test_sessions ts ON ts.student_id = u.id
+       WHERE u.role = 'student'
+       GROUP BY u.id, u.username
+       ORDER BY u.username`,
+    );
+
+    const escapeCsv = (value: unknown) =>
+      `"${String(value ?? "").replace(/"/g, '""')}"`;
+
+    const header = [
+      "student_id",
+      "username",
+      "tests_taken",
+      "avg_score_percent",
+      "avg_grade",
+      "grade_5_count",
+      "grade_4_count",
+      "grade_3_count",
+      "grade_2_count",
+    ];
+    const lines = result.rows.map((row) =>
+      [
+        row.student_id,
+        row.username,
+        row.tests_taken,
+        row.avg_score_percent,
+        row.avg_grade,
+        row.grade_5_count,
+        row.grade_4_count,
+        row.grade_3_count,
+        row.grade_2_count,
+      ]
+        .map(escapeCsv)
+        .join(","),
+    );
+
+    await logAction({
+      userId: req.user!.userId,
+      username: req.user!.username,
+      userRole: req.user!.role,
+      actionType: "export.student_performance_csv",
+      entityType: "stats",
+      details: `Экспорт успеваемости по ${result.rows.length} студентам`,
+    });
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="student-performance.csv"');
+    res.send([header.join(","), ...lines].join("\n"));
+  } catch (err) {
+    console.error("Ошибка экспорта успеваемости:", err);
+    res.status(500).json({ error: "Не удалось экспортировать успеваемость" });
+  }
+});
 
 // ===========================================
 // GET /api/stats/test/:testId — Статистика по тесту
@@ -12,7 +81,7 @@ const router = Router();
 // ===========================================
 router.get("/test/:testId", authenticate, authorize("admin", "teacher"), async (req, res) => {
   try {
-    const testId = parseInt(req.params.testId);
+    const testId = parseInt(String(req.params.testId), 10);
 
     // Общая статистика по тесту
     const overviewResult = await pool.query(
@@ -78,7 +147,7 @@ router.get("/test/:testId", authenticate, authorize("admin", "teacher"), async (
 // ===========================================
 router.get("/group/:groupId", authenticate, authorize("admin", "teacher"), async (req, res) => {
   try {
-    const groupId = parseInt(req.params.groupId);
+    const groupId = parseInt(String(req.params.groupId), 10);
 
     // Информация о группе
     const groupResult = await pool.query(
@@ -143,7 +212,7 @@ router.get("/group/:groupId", authenticate, authorize("admin", "teacher"), async
 // ===========================================
 router.get("/student/:studentId", authenticate, authorize("admin", "teacher"), async (req, res) => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(String(req.params.studentId), 10);
 
     // Информация о студенте
     const userResult = await pool.query(
@@ -224,8 +293,8 @@ router.get("/student/:studentId", authenticate, authorize("admin", "teacher"), a
 // ===========================================
 router.get("/group/:groupId/test/:testId", authenticate, authorize("admin", "teacher"), async (req, res) => {
   try {
-    const groupId = parseInt(req.params.groupId);
-    const testId = parseInt(req.params.testId);
+    const groupId = parseInt(String(req.params.groupId), 10);
+    const testId = parseInt(String(req.params.testId), 10);
 
     const result = await pool.query(
       `SELECT 
@@ -254,7 +323,7 @@ router.get("/group/:groupId/test/:testId", authenticate, authorize("admin", "tea
 // ===========================================
 router.get("/analytics/student/:studentId", authenticate, authorize("admin", "teacher"), async (req, res) => {
   try {
-    const studentId = parseInt(req.params.studentId);
+    const studentId = parseInt(String(req.params.studentId), 10);
 
     // Все завершённые сессии студента (хронологически)
     const sessionsResult = await pool.query(
@@ -323,7 +392,7 @@ router.get("/analytics/student/:studentId", authenticate, authorize("admin", "te
 // ===========================================
 router.get("/analytics/group/:groupId", authenticate, authorize("admin", "teacher"), async (req, res) => {
   try {
-    const groupId = parseInt(req.params.groupId);
+    const groupId = parseInt(String(req.params.groupId), 10);
 
     // Все студенты группы
     const membersResult = await pool.query(

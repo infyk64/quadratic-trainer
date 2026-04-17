@@ -15,6 +15,8 @@ import groupsRouter from "./routes/groups";
 import testsRouter from "./routes/tests";
 import answersRouter from "./routes/answers";
 import statsRouter from "./routes/stats";
+import feedbackRouter from "./routes/feedback";
+import logsRouter from "./routes/logs";
 
 dotenv.config();
 
@@ -50,6 +52,8 @@ app.use("/api/groups", groupsRouter);
 app.use("/api/tests", testsRouter);
 app.use("/api/answers", answersRouter);
 app.use("/api/stats", statsRouter);
+app.use("/api/feedback", feedbackRouter);
+app.use("/api/logs", logsRouter);
 
 // Health check
 app.get("/api/health", (req, res) => {

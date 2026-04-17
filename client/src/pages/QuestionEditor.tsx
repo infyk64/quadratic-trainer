@@ -41,14 +41,11 @@ export function QuestionEditor() {
     }
 
     try {
-      const userId = localStorage.getItem("userId");
-
       await api.post("/theory-questions", {
         question: question.trim(),
         answer_mask: answerMask.trim(),
         answer_type: answerType,
         hint: hint.trim() || null,
-        created_by: userId ? parseInt(userId) : null,
       });
 
       setQuestion("");

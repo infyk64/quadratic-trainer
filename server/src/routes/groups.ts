@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { pool } from "../db/pool";
+import { authenticate, authorize } from "../middleware/authMiddleware";
 
 const router = Router();
 
@@ -29,7 +30,7 @@ router.get("/", async (req, res) => {
 });
 
 // Создать группу
-router.post("/", async (req, res) => {
+router.post("/", authenticate, authorize("admin"), async (req, res) => {
   try {
     const { name, teacher_id } = req.body;
 
@@ -105,9 +106,9 @@ router.delete("/:groupId/members/:studentId", async (req, res) => {
 });
 
 // Удалить группу
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authenticate, authorize("admin"), async (req, res) => {
   try {
-    const groupId = parseInt(req.params.id);
+    const groupId = parseInt(String(req.params.id), 10);
     
     await pool.query("DELETE FROM groups WHERE id = $1", [groupId]);
     

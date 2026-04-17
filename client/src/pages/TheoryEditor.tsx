@@ -8,6 +8,7 @@ export function TheoryEditor() {
   const [materials, setMaterials] = useState<
     Array<{ id: number; title: string; content: string }>
   >([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -65,21 +66,26 @@ export function TheoryEditor() {
     }
 
     try {
-      const userId = localStorage.getItem("userId");
-
-      await api.post("/theory-materials", {
-        title: title.trim(),
-        content: content.trim(),
-        author_id: userId ? parseInt(userId) : null,
-      });
+      if (editingId) {
+        await api.put(`/theory-materials/${editingId}`, {
+          title: title.trim(),
+          content: content.trim(),
+        });
+      } else {
+        await api.post("/theory-materials", {
+          title: title.trim(),
+          content: content.trim(),
+        });
+      }
 
       setTitle("");
       setContent("");
+      setEditingId(null);
       loadMaterials();
-      alert("Материал сохранён в базу данных!");
+      alert(editingId ? "Материал обновлён!" : "Материал сохранён в базу данных!");
     } catch (err) {
       console.error("Ошибка сохранения:", err);
-      alert("Не удалось сохранить материал");
+      alert(editingId ? "Не удалось обновить материал" : "Не удалось сохранить материал");
     }
   };
 
@@ -95,12 +101,25 @@ export function TheoryEditor() {
     }
   };
 
+  const startEditing = (material: { id: number; title: string; content: string }) => {
+    setEditingId(material.id);
+    setTitle(material.title);
+    setContent(material.content);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setTitle("");
+    setContent("");
+  };
+
   return (
     <div className="page-container">
       <h1>Редактор теоретических материалов</h1>
 
       <div className="section-card">
-        <h2>Создать новый материал</h2>
+        <h2>{editingId ? "Редактирование материала" : "Создать новый материал"}</h2>
 
         <input
           type="text"
@@ -220,13 +239,16 @@ export function TheoryEditor() {
           />
         )}
 
-        <button
-          onClick={saveMaterial}
-          className="btn-primary"
-          style={{ marginTop: "16px" }}
-        >
-          Сохранить материал
-        </button>
+        <div style={{ display: "flex", gap: "10px", marginTop: "16px", flexWrap: "wrap" }}>
+          <button onClick={saveMaterial} className="btn-primary">
+            {editingId ? "Сохранить изменения" : "Сохранить материал"}
+          </button>
+          {editingId && (
+            <button onClick={cancelEditing} className="btn-danger">
+              Отмена редактирования
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="section-card">
@@ -262,6 +284,13 @@ export function TheoryEditor() {
                     style={{ padding: "6px 14px" }}
                   >
                     Удалить
+                  </button>
+                  <button
+                    onClick={() => startEditing(material)}
+                    className="btn-primary"
+                    style={{ padding: "6px 14px", marginLeft: "8px" }}
+                  >
+                    Редактировать
                   </button>
                 </div>
                 <p
