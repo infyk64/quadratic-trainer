@@ -3,6 +3,9 @@ import fs from "fs";
 import path from "path";
 import bcrypt from "bcryptjs";
 
+const ADMIN_USERNAME = "admin";
+const FIXED_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+
 async function migrate() {
   const client = await pool.connect();
 
@@ -23,42 +26,31 @@ async function migrate() {
       console.log(`   ✅ ${file} — успешно\n`);
     }
 
-    // Создаём дефолтного админа (если нет)
+    // Системный admin всегда существует с фиксированным паролем.
     const adminExists = await client.query(
-      "SELECT id FROM users WHERE username = 'admin'"
+      "SELECT id FROM users WHERE username = $1",
+      [ADMIN_USERNAME]
     );
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(FIXED_ADMIN_PASSWORD, salt);
 
     if (adminExists.rows.length === 0) {
-      const salt = await bcrypt.genSalt(10);
-      const hash = await bcrypt.hash("admin123", salt);
-
       await client.query(
         "INSERT INTO users (username, role, password_hash) VALUES ($1, $2, $3)",
-        ["admin", "admin", hash]
+        [ADMIN_USERNAME, "admin", hash]
       );
-      console.log("👑 Создан администратор по умолчанию:");
-      console.log("   Логин: admin");
-      console.log("   Пароль: admin123");
-      console.log("   ⚠️  Смените пароль после первого входа!\n");
+      console.log("👑 Создан системный администратор:");
     } else {
-      // Обновляем хэш пароля если его нет (для обратной совместимости)
-      const admin = await client.query(
-        "SELECT id, password_hash FROM users WHERE username = 'admin'"
+      await client.query(
+        "UPDATE users SET role = 'admin', password_hash = $1 WHERE username = $2",
+        [hash, ADMIN_USERNAME]
       );
-
-      if (!admin.rows[0].password_hash) {
-        const salt = await bcrypt.genSalt(10);
-        const hash = await bcrypt.hash("admin123", salt);
-
-        await client.query(
-          "UPDATE users SET password_hash = $1, role = 'admin' WHERE username = 'admin'",
-          [hash]
-        );
-        console.log("🔑 Обновлён хэш пароля для admin (bcrypt)\n");
-      } else {
-        console.log("👑 Администратор уже существует\n");
-      }
+      console.log("🔒 Пароль системного администратора синхронизирован");
     }
+
+    console.log(`   Логин: ${ADMIN_USERNAME}`);
+    console.log(`   Пароль: ${FIXED_ADMIN_PASSWORD}`);
+    console.log("   ℹ️  Пароль admin фиксированный и не меняется через API\n");
 
     console.log("✅ Все миграции выполнены успешно!");
   } catch (err) {

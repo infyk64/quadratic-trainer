@@ -156,7 +156,7 @@ function App() {
               )}
 
               {/* Преподаватель */}
-              {(user.role === "admin" || user.role === "teacher") && (
+              {user.role === "teacher" && (
                 <NavLink
                   to="/teacher"
                   className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
@@ -197,8 +197,8 @@ function App() {
               </>
             )}
 
-            {/* ===== Преподаватель + Админ ===== */}
-            {(user.role === "admin" || user.role === "teacher") && (
+            {/* ===== Преподаватель ===== */}
+            {user.role === "teacher" && (
               <>
                 <Route path="/teacher" element={<TeacherPanel />} />
                 <Route path="/teacher/theory-editor" element={<TheoryEditor />} />

@@ -138,6 +138,12 @@ router.post("/change-password", async (req, res) => {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
 
+    if (decoded.role === "admin" && decoded.username === "admin") {
+      return res.status(403).json({
+        error: "Пароль системного администратора изменить нельзя",
+      });
+    }
+
     const { currentPassword, newPassword } = req.body;
 
     if (!newPassword || newPassword.length < 4) {
