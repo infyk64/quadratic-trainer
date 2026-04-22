@@ -7,6 +7,14 @@ import { linearRegression, classifyStudent } from "../services/analyticsService"
 
 const router = Router();
 
+const parsePositiveId = (value: unknown): number | null => {
+  const parsed = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+};
+
 router.get("/export/student-performance", authenticate, authorize("admin"), async (req, res) => {
   try {
     const result = await pool.query(
@@ -81,7 +89,10 @@ router.get("/export/student-performance", authenticate, authorize("admin"), asyn
 // ===========================================
 router.get("/test/:testId", authenticate, authorize("admin", "teacher"), async (req, res) => {
   try {
-    const testId = parseInt(String(req.params.testId), 10);
+    const testId = parsePositiveId(req.params.testId);
+    if (!testId) {
+      return res.status(400).json({ error: "Некорректный ID теста" });
+    }
 
     // Общая статистика по тесту
     const overviewResult = await pool.query(
@@ -147,7 +158,10 @@ router.get("/test/:testId", authenticate, authorize("admin", "teacher"), async (
 // ===========================================
 router.get("/group/:groupId", authenticate, authorize("admin", "teacher"), async (req, res) => {
   try {
-    const groupId = parseInt(String(req.params.groupId), 10);
+    const groupId = parsePositiveId(req.params.groupId);
+    if (!groupId) {
+      return res.status(400).json({ error: "Некорректный ID группы" });
+    }
 
     // Информация о группе
     const groupResult = await pool.query(
@@ -212,7 +226,10 @@ router.get("/group/:groupId", authenticate, authorize("admin", "teacher"), async
 // ===========================================
 router.get("/student/:studentId", authenticate, authorize("admin", "teacher"), async (req, res) => {
   try {
-    const studentId = parseInt(String(req.params.studentId), 10);
+    const studentId = parsePositiveId(req.params.studentId);
+    if (!studentId) {
+      return res.status(400).json({ error: "Некорректный ID ученика" });
+    }
 
     // Информация о студенте
     const userResult = await pool.query(
@@ -293,8 +310,11 @@ router.get("/student/:studentId", authenticate, authorize("admin", "teacher"), a
 // ===========================================
 router.get("/group/:groupId/test/:testId", authenticate, authorize("admin", "teacher"), async (req, res) => {
   try {
-    const groupId = parseInt(String(req.params.groupId), 10);
-    const testId = parseInt(String(req.params.testId), 10);
+    const groupId = parsePositiveId(req.params.groupId);
+    const testId = parsePositiveId(req.params.testId);
+    if (!groupId || !testId) {
+      return res.status(400).json({ error: "Некорректные ID группы или теста" });
+    }
 
     const result = await pool.query(
       `SELECT 
@@ -323,7 +343,10 @@ router.get("/group/:groupId/test/:testId", authenticate, authorize("admin", "tea
 // ===========================================
 router.get("/analytics/student/:studentId", authenticate, authorize("admin", "teacher"), async (req, res) => {
   try {
-    const studentId = parseInt(String(req.params.studentId), 10);
+    const studentId = parsePositiveId(req.params.studentId);
+    if (!studentId) {
+      return res.status(400).json({ error: "Некорректный ID ученика" });
+    }
 
     // Все завершённые сессии студента (хронологически)
     const sessionsResult = await pool.query(
@@ -392,7 +415,10 @@ router.get("/analytics/student/:studentId", authenticate, authorize("admin", "te
 // ===========================================
 router.get("/analytics/group/:groupId", authenticate, authorize("admin", "teacher"), async (req, res) => {
   try {
-    const groupId = parseInt(String(req.params.groupId), 10);
+    const groupId = parsePositiveId(req.params.groupId);
+    if (!groupId) {
+      return res.status(400).json({ error: "Некорректный ID группы" });
+    }
 
     // Все студенты группы
     const membersResult = await pool.query(
