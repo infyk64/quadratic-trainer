@@ -15,6 +15,27 @@ const parsePositiveId = (value: unknown): number | null => {
   return parsed;
 };
 
+const getAttemptsTimestampColumn = async (): Promise<"attempted_at" | "created_at" | null> => {
+  const columnsResult = await pool.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_name = 'attempts'
+       AND column_name IN ('attempted_at', 'created_at')`
+  );
+
+  const availableColumns = new Set(
+    columnsResult.rows.map((row: { column_name: string }) => row.column_name)
+  );
+
+  if (availableColumns.has("attempted_at")) {
+    return "attempted_at";
+  }
+  if (availableColumns.has("created_at")) {
+    return "created_at";
+  }
+  return null;
+};
+
 router.get("/export/student-performance", authenticate, authorize("admin"), async (req, res) => {
   try {
     const result = await pool.query(
@@ -267,21 +288,24 @@ router.get("/student/:studentId", authenticate, authorize("admin", "teacher"), a
     );
 
     // Динамика по дням (последние 30 дней)
-    const dynamicsResult = await pool.query(
-      `SELECT 
-        DATE(attempted_at) as date,
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE is_correct = true) as correct,
-        ROUND(
-          COUNT(*) FILTER (WHERE is_correct = true)::numeric
-          / NULLIF(COUNT(*), 0) * 100, 1
-        ) as success_rate
-       FROM attempts
-       WHERE user_id = $1 AND attempted_at > NOW() - INTERVAL '30 days'
-       GROUP BY DATE(attempted_at)
-       ORDER BY date`,
-      [studentId]
-    );
+    const attemptsTimestampColumn = await getAttemptsTimestampColumn();
+    const dynamicsResult = attemptsTimestampColumn
+      ? await pool.query(
+          `SELECT 
+            DATE(${attemptsTimestampColumn}) as date,
+            COUNT(*) as total,
+            COUNT(*) FILTER (WHERE is_correct = true) as correct,
+            ROUND(
+              COUNT(*) FILTER (WHERE is_correct = true)::numeric
+              / NULLIF(COUNT(*), 0) * 100, 1
+            ) as success_rate
+           FROM attempts
+           WHERE user_id = $1 AND ${attemptsTimestampColumn} > NOW() - INTERVAL '30 days'
+           GROUP BY DATE(${attemptsTimestampColumn})
+           ORDER BY date`,
+          [studentId]
+        )
+      : { rows: [] };
 
     // Группы студента
     const groupsResult = await pool.query(
